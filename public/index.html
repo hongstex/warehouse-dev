@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>面料仓货架布置</title>
+<meta name="description" content="3#楼标准层面料仓货架布置草稿 v0：平面图、仓位统计、风险与待确认事项。">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect x=%221%22 y=%223%22 width=%224%22 height=%2210%22 fill=%22%236fae6e%22/%3E%3Crect x=%226%22 y=%223%22 width=%224%22 height=%2210%22 fill=%22%236fae6e%22/%3E%3Crect x=%2211%22 y=%223%22 width=%224%22 height=%2210%22 fill=%22%236fae6e%22/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#f6f7f5;--surface:#fff;--ink:#1d2320;--muted:#5f6b65;--line:#d9ded9;
+  --rack:#6fae6e;--rack-ink:#2d5a2c;--rack-hi:#f0a630;--core:#c4c8c5;--core-ink:#6a706c;
+  --zone:#fff1bf;--zone-ink:#b8860b;--aisle:#dcecfb;--aisle-ink:#1f6fb8;
+  --shutter:#e23b3b;--shutter-band:#fbd9d9;--grid:#e07a7a;--col:#3d4440;--door:#b03ab0;
+  --accent:#2e7d4f;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#121614;--surface:#1b201d;--ink:#e6ebe7;--muted:#9aa59f;--line:#2e3631;
+  --rack:#4f8f50;--rack-ink:#a8d8a6;--core:#3a403c;--core-ink:#9aa29d;
+  --zone:#3d3418;--zone-ink:#e3bd52;--aisle:#17324a;--aisle-ink:#7fb8ec;
+  --shutter-band:#4a1f1f;--grid:#9a4a4a;--col:#c9cfcb;--door:#e08ae0;--accent:#6cc28f;
+}}
+:root[data-theme="dark"]{
+  --bg:#121614;--surface:#1b201d;--ink:#e6ebe7;--muted:#9aa59f;--line:#2e3631;
+  --rack:#4f8f50;--rack-ink:#a8d8a6;--core:#3a403c;--core-ink:#9aa29d;
+  --zone:#3d3418;--zone-ink:#e3bd52;--aisle:#17324a;--aisle-ink:#7fb8ec;
+  --shutter-band:#4a1f1f;--grid:#9a4a4a;--col:#c9cfcb;--door:#e08ae0;--accent:#6cc28f;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.65 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif}
+main{max-width:1200px;margin:0 auto;padding:24px 16px 64px}
+h1{font-size:24px;margin:0 0 4px}
+h2{font-size:18px;margin:36px 0 12px}
+.sub{color:var(--muted);margin:0 0 20px}
+.tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:10px;background:var(--zone);color:var(--zone-ink);margin-left:8px;vertical-align:middle}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.stat b{display:block;font-size:24px;font-variant-numeric:tabular-nums}
+.stat span{color:var(--muted);font-size:13px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px}
+.plan-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.plan-wrap svg{display:block;min-width:900px;width:100%;height:auto}
+.toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:8px}
+.toolbar input{font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);width:200px}
+#info{color:var(--muted);font-size:14px;min-height:1.6em}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--muted);margin-top:10px}
+.legend i{display:inline-block;width:14px;height:10px;margin-right:6px;vertical-align:middle;border:1px solid var(--line)}
+table{border-collapse:collapse;width:100%;background:var(--surface);border-radius:10px;overflow:hidden}
+th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{width:22%;color:var(--muted);font-weight:500}
+ol,ul{padding-left:22px}
+li{margin:4px 0}
+.dl{display:flex;flex-wrap:wrap;gap:10px}
+.dl a{display:inline-block;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--accent);text-decoration:none}
+.dl a:hover{border-color:var(--accent)}
+footer{color:var(--muted);font-size:13px;margin-top:40px}
+svg text{font-family:inherit}
+.cell{fill:var(--rack);stroke:var(--rack-ink);stroke-width:30;cursor:pointer}
+.cell:hover,.cell.hit{fill:var(--rack-hi)}
+</style>
+</head>
+<body>
+<main>
+  <h1>面料仓货架布置 <span class="tag">草稿 v0</span></h1>
+  <p class="sub">3#楼二~七层标准层 · 96m × 24m · 柱网 8m × 8m · 层高 4.3m · 两个防火分区</p>
+
+  <section class="stats" id="stats" aria-label="指标"></section>
+
+  <h2>平面布置</h2>
+  <div class="card">
+    <div class="toolbar">
+      <div id="info">悬停或点击货架格查看仓位编码</div>
+      <input id="q" type="search" placeholder="查仓位，如 W-R05-03" aria-label="查找仓位">
+    </div>
+    <div class="plan-wrap"><svg id="plan" role="img" aria-label="货架平面布置图"></svg></div>
+    <div class="legend">
+      <span><i style="background:var(--rack)"></i>货架单格（每格 2 层）</span>
+      <span><i style="background:var(--core)"></i>核心筒</span>
+      <span><i style="background:var(--zone)"></i>功能区</span>
+      <span><i style="background:var(--aisle)"></i>主通道 3.0m</span>
+      <span><i style="background:var(--shutter-band)"></i>防火卷帘净空带</span>
+      <span><i style="background:var(--shutter)"></i>消火栓（估）</span>
+      <span><i style="background:var(--door)"></i>门</span>
+    </div>
+  </div>
+
+  <h2>布置思路</h2>
+  <table>
+    <tr><th>货架排向</th><td>南北向（垂直于长边）。通道尽端正对外窗，不挡采光、通风和排烟窗；单条通道约 10m，拣货路线短。</td></tr>
+    <tr><th>单格</th><td>沿通道 2.0m × 进深 1.95m × 2 层，沿用 7 楼 2m 模数；布卷卷轴垂直于通道，可放 180 幅宽。</td></tr>
+    <tr><th>双排 / 通道</th><td>背靠背双排 4.0m；作业通道 2.0m，局部 2.3~3.7m；中部东西向主通道 3.0m，连通两端货梯。</td></tr>
+    <tr><th>柱网处理</th><td>8m 柱距与 6m 的“双排 + 通道”模数不一致，经程序优化，大部分柱子落在货架内（占 1 格）。3-3、3-4、3-10、3-11 轴柱子凸入通道约 0.3m，柱位处通道净宽 1.7m。</td></tr>
+    <tr><th>防火卷帘</th><td>3-7 轴卷帘线两侧各留 1m 净空，带内不放货，可兼作两侧货架的通道。东区按西区镜像布置。</td></tr>
+    <tr><th>功能区</th><td>两部货梯出口各设收发暂存区（约 80 / 75 m²）；东区卫生间旁设验布、分拣、待上架区（约 45 m²）；T2 前室门、消火栓、烟道前方不布货架。</td></tr>
+  </table>
+
+  <h2>风险 / 需复核</h2>
+  <ol>
+    <li><b>梁底与喷头净空：</b>8m 跨主梁高约 0.6~0.7m，梁底净高可能只有约 3.6m；货顶还要与喷头溅水盘保持规范净距。“2 层 × 2m、货顶 4m”需现场实测，或对照 7 楼做法。</li>
+    <li><b>楼面荷载：</b>按每格每层约 36 卷、25kg/卷估算，货架投影下约 4.6 kN/m²，需对照结构说明的楼面活荷载。</li>
+    <li><b>使用性质：</b>丙类厂房改作面料仓储，可能涉及消防使用功能变更；货物不得占用疏散通道和卷帘下方。</li>
+    <li>核心筒尺寸、门位、消火栓位置为读图估计，需现场复核。</li>
+  </ol>
+
+  <h2>待确认</h2>
+  <ol>
+    <li>新仓库在第几层？5~7 层东端（3-11~3-13）与其他层略有不同。</li>
+    <li>7 楼的柱子怎么处理？能否提供 7 楼现场照片或布置草图？</li>
+    <li>上层布卷怎么取放：人工爬梯、登高车，还是堆高车加地毯杆？决定 2m 通道是否够用。</li>
+    <li>每格大概放多少卷？布卷直径约多少？</li>
+    <li>货梯载重和门宽？1.8m 布卷能否平推进出？</li>
+    <li>外墙 JM1a 门（原“卸货平台”）是否还用于吊装或卸货？不用可多排货架。</li>
+    <li>是否需要办公、验布台、裁剪或打包区？各需多大？</li>
+    <li>布卷按客户、品种还是批次管理？是否要求先进先出？</li>
+  </ol>
+
+  <h2>下载</h2>
+  <div class="dl">
+    <a href="files/layout_v0.dxf" download>DXF（AutoCAD，单位 mm）</a>
+    <a href="files/layout_v0.pdf">PDF 布置图</a>
+    <a href="files/layout_v0.png">PNG 布置图</a>
+    <a href="data/layout_v0.json">JSON 数据</a>
+  </div>
+
+  <footer>草稿仅供讨论。底图依据《二~七层平面图》J-4改，坐标原点为 3-1 × 3-A 轴交点。</footer>
+</main>
+
+<script>
+(async function () {
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.getElementById("plan");
+  const info = document.getElementById("info");
+  let d;
+  try {
+    d = await (await fetch("data/layout_v0.json", { cache: "no-cache" })).json();
+  } catch (e) {
+    info.textContent = "数据加载失败：" + e.message;
+    return;
+  }
+  const H = d.outline[3];
+  const Y = (y) => H - y;                     // 图纸 y 向北，SVG y 向下
+  svg.setAttribute("viewBox", "-3200 -3200 102400 31000");
+
+  function el(tag, attrs, parent) {
+    const n = document.createElementNS(NS, tag);
+    for (const k in attrs) n.setAttribute(k, attrs[k]);
+    (parent || svg).appendChild(n);
+    return n;
+  }
+  function rect(r, style, parent) {
+    return el("rect", Object.assign({ x: r[0], y: Y(r[3]), width: r[2] - r[0], height: r[3] - r[1] }, style), parent);
+  }
+  function label(txt, x, y, size, fill, anchor) {
+    const lines = String(txt).split("\n");
+    const t = el("text", { x, y: Y(y) - (lines.length - 1) * size * 0.6, "font-size": size, fill, "text-anchor": anchor || "middle", "dominant-baseline": "middle" });
+    lines.forEach((s, i) => { const ts = el("tspan", { x, dy: i ? size * 1.2 : 0 }, t); ts.textContent = s; });
+    return t;
+  }
+
+  // 底层：通道、卷帘带、功能区、核心筒
+  rect(d.mainAisle, { fill: "var(--aisle)" });
+  rect(d.shutter.band, { fill: "var(--shutter-band)" });
+  d.zones.forEach((z) => {
+    rect(z.rect, { fill: "var(--zone)", stroke: "var(--zone-ink)", "stroke-width": 50, "stroke-dasharray": "300 200" });
+    label(z.name, (z.rect[0] + z.rect[2]) / 2, (z.rect[1] + z.rect[3]) / 2, 520, "var(--zone-ink)");
+  });
+  d.cores.forEach((c) => {
+    rect(c.rect, { fill: "var(--core)", stroke: "var(--core-ink)", "stroke-width": 60 });
+    label(c.name, (c.rect[0] + c.rect[2]) / 2, (c.rect[1] + c.rect[3]) / 2, 520, "var(--core-ink)");
+  });
+  // 轴网
+  d.grid.x.forEach(([v, n]) => {
+    el("line", { x1: v, x2: v, y1: Y(25000), y2: Y(-1000), stroke: "var(--grid)", "stroke-width": 25, "stroke-dasharray": "600 200 100 200" });
+    label(n, v, -2200, 600, "var(--muted)");
+  });
+  d.grid.y.forEach(([v, n]) => {
+    el("line", { x1: -1000, x2: 97000, y1: Y(v), y2: Y(v), stroke: "var(--grid)", "stroke-width": 25, "stroke-dasharray": "600 200 100 200" });
+    label(n, -2000, v, 600, "var(--muted)");
+  });
+  rect(d.outline, { fill: "none", stroke: "var(--ink)", "stroke-width": 120 });
+  label("主通道 3.0m", 22000, (d.mainAisle[1] + d.mainAisle[3]) / 2, 700, "var(--aisle-ink)");
+  label("主通道 3.0m", 70000, (d.mainAisle[1] + d.mainAisle[3]) / 2, 700, "var(--aisle-ink)");
+
+  // 货架格
+  const cells = new Map();
+  const g = el("g", {});
+  d.cells.forEach((c) => {
+    const r = rect(c.rect, { class: "cell", "data-code": c.code, tabindex: 0 }, g);
+    el("title", {}, r).textContent = c.code;
+    cells.set(c.code, r);
+  });
+  // 上层：卷帘线、柱、消火栓、门
+  el("line", { x1: d.shutter.x, x2: d.shutter.x, y1: Y(d.shutter.y[0]), y2: Y(d.shutter.y[1]), stroke: "var(--shutter)", "stroke-width": 160 });
+  d.columns.forEach((k) => rect(k, { fill: "var(--col)" }));
+  d.hydrants.forEach((h) => rect(h, { fill: "var(--shutter)" }));
+  d.doors.forEach((o) => {
+    el("circle", { cx: o.x, cy: Y(o.y), r: 380, fill: "var(--door)" });
+    label(o.name, o.x, o.y + (o.y === 0 ? 900 : o.y === 24000 ? -900 : 900), 440, "var(--door)");
+  });
+
+  // 指标
+  const s = d.stats;
+  const tiles = [
+    [s.positions_total, "仓位（格 × 层）"],
+    [s.west_compartment_positions + " / " + s.east_compartment_positions, "西区 / 东区仓位"],
+    [s.cells_per_level, "每层单格数"],
+    [Math.round(s.footprint_ratio * 100) + "%", "货架占地率"],
+    [s.usable_floor_m2 + " m²", "可用面积（扣核心筒）"],
+  ];
+  document.getElementById("stats").innerHTML = tiles.map(([v, t]) => `<div class="stat"><b>${v}</b><span>${t}</span></div>`).join("");
+
+  // 交互
+  function show(code) {
+    const r = cells.get(code);
+    if (!r) return false;
+    const [zone, row, slot] = code.split("-");
+    info.textContent = `${code} · ${zone === "W" ? "西区" : "东区"} · 第 ${+row.slice(1)} 排面 · 自南向北第 ${+slot} 格 · ${d.levels} 层`;
+    return true;
+  }
+  g.addEventListener("mouseover", (e) => e.target.dataset.code && show(e.target.dataset.code));
+  g.addEventListener("click", (e) => e.target.dataset.code && show(e.target.dataset.code));
+  g.addEventListener("focusin", (e) => e.target.dataset.code && show(e.target.dataset.code));
+  document.getElementById("q").addEventListener("input", (e) => {
+    const q = e.target.value.trim().toUpperCase();
+    cells.forEach((r) => r.classList.remove("hit"));
+    if (!q) return;
+    let n = 0;
+    cells.forEach((r, code) => { if (code.includes(q)) { r.classList.add("hit"); n++; } });
+    if (!show(q)) info.textContent = n ? `匹配 ${n} 格` : "无匹配仓位";
+  });
+})();
+</script>
+</body>
+</html>
