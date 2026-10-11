@@ -13,7 +13,10 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from matplotlib import font_manager
 
-OUT = Path(__file__).resolve().parent.parent / "output"
+ROOT = Path(__file__).resolve().parent.parent
+PUBLIC = ROOT / "public"          # Cloudflare Pages 发布目录
+OUT = PUBLIC / "files"            # 下载文件 png/pdf/dxf
+DATA = PUBLIC / "data"            # 网页渲染用 JSON
 
 # ---------------- 建筑 ----------------
 GRID_X = [i * 8000 for i in range(13)]          # 3-1 .. 3-13
@@ -231,13 +234,47 @@ def draw_dxf(cells, path):
     doc.saveas(path)
 
 
+def cell_codes(cells):
+    """仓位编码：排号按货架面自西向东 R01..，格号自南向北 01..10。"""
+    xs = sorted({c[0] for c in cells})
+    out = []
+    for c in cells:
+        r = xs.index(c[0]) + 1
+        k = next(i for i, s in enumerate(SLOTS_Y) if s[0] == c[1]) + 1
+        zone = "W" if c[2] <= SHUTTER_X else "E"
+        out.append({"code": f"{zone}-R{r:02d}-{k:02d}", "rect": list(c)})
+    return out
+
+
+def export_json(cells, st, path):
+    data = {
+        "version": "v0",
+        "units": "mm",
+        "levels": LEVELS,
+        "cell": {"width": CELL, "depth": SIDE},
+        "outline": [0, 0, 96000, 24000],
+        "grid": {"x": [[v, n] for v, n in zip(GRID_X, AXIS_X)], "y": [[v, n] for v, n in zip(GRID_Y, AXIS_Y)]},
+        "columns": columns(),
+        "cores": [{"name": n, "rect": list(b)} for n, b in CORES.items()],
+        "zones": [{"name": n, "rect": list(b)} for n, b in ZONES.items()],
+        "mainAisle": [300, MAIN_AISLE[0], 95700, MAIN_AISLE[1]],
+        "shutter": {"x": SHUTTER_X, "y": [300, 16000], "band": list(SHUTTER_BAND)},
+        "hydrants": [list(h) for h in HYDRANTS],
+        "doors": [{"x": x, "y": y, "name": n} for x, y, n in DOORS],
+        "cells": cell_codes(cells),
+        "stats": st,
+    }
+    path.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")))
+
+
 def main():
-    OUT.mkdir(exist_ok=True)
+    OUT.mkdir(parents=True, exist_ok=True)
+    DATA.mkdir(parents=True, exist_ok=True)
     cells = build_cells()
     st = stats(cells)
     draw_png(cells, st, OUT / "layout_v0.png")
     draw_dxf(cells, OUT / "layout_v0.dxf")
-    (OUT / "layout_v0_stats.json").write_text(json.dumps(st, ensure_ascii=False, indent=2))
+    export_json(cells, st, DATA / "layout_v0.json")
     print(json.dumps(st, ensure_ascii=False, indent=2))
 
 
