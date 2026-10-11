@@ -1,15 +1,15 @@
 # warehouse-dev
 
-面料仓（3#楼标准层）货架规划草稿。
+5 楼面料仓（3#楼）货架规划：方案 A/B 对比、2D/3D 展示、仓位与用料估算。
 
 ## 目录
 - `public/` — 静态展示站（Cloudflare Pages 发布目录）
-  - `index.html` — 交互平面图、指标、风险、待确认事项
-  - `data/layout_v0.json` — 布置数据（网页读取）
-  - `files/layout_v0.{png,pdf,dxf}` — 下载文件（DXF 可直接在 AutoCAD 打开，单位 mm）
+  - `index.html` — 方案切换、2D 平面（可查仓位）、3D 立体（three.js，CDN 加载）、用料表（单价可改）
+  - `data/layout_{A,B}.json` — 布置、仓位、货架段、用料数据（网页读取）
+  - `files/layout_5F_{A,B}_v1.{png,pdf,dxf}` — 下载文件（DXF 可直接在 AutoCAD 打开，单位 mm）
 - `layout/generate.py` — 参数化出图脚本，改参数后重新生成 `public/` 下的数据和文件
 - `layout/optimize_rows.py` — 排位优化（柱网避让）
-- `docs/方案说明_v0.md` — 方案说明全文
+- `docs/方案说明_v1.md` — 方案说明全文
 
 ## 更新方案
 ```bash

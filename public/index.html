@@ -3,54 +3,74 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>面料仓货架布置</title>
-<meta name="description" content="3#楼标准层面料仓货架布置草稿 v0：平面图、仓位统计、风险与待确认事项。">
+<title>5楼面料仓规划</title>
+<meta name="description" content="3#楼 5 层面料仓货架布置：方案 A/B 对比、2D/3D 展示、仓位与用料估算。">
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect x=%221%22 y=%223%22 width=%224%22 height=%2210%22 fill=%22%236fae6e%22/%3E%3Crect x=%226%22 y=%223%22 width=%224%22 height=%2210%22 fill=%22%236fae6e%22/%3E%3Crect x=%2211%22 y=%223%22 width=%224%22 height=%2210%22 fill=%22%236fae6e%22/%3E%3C/svg%3E">
 <style>
 :root{
   --bg:#f6f7f5;--surface:#fff;--ink:#1d2320;--muted:#5f6b65;--line:#d9ded9;
   --rack:#6fae6e;--rack-ink:#2d5a2c;--rack-hi:#f0a630;--core:#c4c8c5;--core-ink:#6a706c;
-  --zone:#fff1bf;--zone-ink:#b8860b;--aisle:#dcecfb;--aisle-ink:#1f6fb8;
+  --zone:#fff1bf;--zone-ink:#a87a00;--aisle:#dcecfb;--aisle-ink:#1f6fb8;
   --shutter:#e23b3b;--shutter-band:#fbd9d9;--grid:#e07a7a;--col:#3d4440;--door:#b03ab0;
-  --accent:#2e7d4f;
+  --accent:#2e7d4f;--accent-bg:#e4f2e9;--scene:#eef1ee;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#121614;--surface:#1b201d;--ink:#e6ebe7;--muted:#9aa59f;--line:#2e3631;
   --rack:#4f8f50;--rack-ink:#a8d8a6;--core:#3a403c;--core-ink:#9aa29d;
   --zone:#3d3418;--zone-ink:#e3bd52;--aisle:#17324a;--aisle-ink:#7fb8ec;
-  --shutter-band:#4a1f1f;--grid:#9a4a4a;--col:#c9cfcb;--door:#e08ae0;--accent:#6cc28f;
+  --shutter-band:#4a1f1f;--grid:#9a4a4a;--col:#c9cfcb;--door:#e08ae0;--accent:#6cc28f;--accent-bg:#1d3326;--scene:#1a1f1c;
 }}
 :root[data-theme="dark"]{
   --bg:#121614;--surface:#1b201d;--ink:#e6ebe7;--muted:#9aa59f;--line:#2e3631;
   --rack:#4f8f50;--rack-ink:#a8d8a6;--core:#3a403c;--core-ink:#9aa29d;
   --zone:#3d3418;--zone-ink:#e3bd52;--aisle:#17324a;--aisle-ink:#7fb8ec;
-  --shutter-band:#4a1f1f;--grid:#9a4a4a;--col:#c9cfcb;--door:#e08ae0;--accent:#6cc28f;
+  --shutter-band:#4a1f1f;--grid:#9a4a4a;--col:#c9cfcb;--door:#e08ae0;--accent:#6cc28f;--accent-bg:#1d3326;--scene:#1a1f1c;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.65 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif}
 main{max-width:1200px;margin:0 auto;padding:24px 16px 64px}
 h1{font-size:24px;margin:0 0 4px}
 h2{font-size:18px;margin:36px 0 12px}
-.sub{color:var(--muted);margin:0 0 20px}
+h3{font-size:15px;margin:20px 0 8px}
+.sub{color:var(--muted);margin:0 0 16px}
 .tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:10px;background:var(--zone);color:var(--zone-ink);margin-left:8px;vertical-align:middle}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--surface)}
+.seg button{font:inherit;border:0;background:transparent;color:var(--muted);padding:7px 14px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent-bg);color:var(--accent);font-weight:600}
+.controls{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;margin:4px 0 16px}
+.desc{color:var(--muted);font-size:14px;margin:0 0 14px}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
 .stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
-.stat b{display:block;font-size:24px;font-variant-numeric:tabular-nums}
+.stat b{display:block;font-size:22px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .stat span{color:var(--muted);font-size:13px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px}
 .plan-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .plan-wrap svg{display:block;min-width:900px;width:100%;height:auto}
-.toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:8px}
-.toolbar input{font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);width:200px}
+#view3d{position:relative;height:min(70vh,620px);border-radius:8px;overflow:hidden;background:var(--scene)}
+#view3d canvas{display:block;width:100%;height:100%;touch-action:none}
+#view3d .hint{position:absolute;left:10px;bottom:8px;font-size:12px;color:var(--muted);pointer-events:none}
+#view3d .msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;justify-content:space-between;margin-bottom:8px}
+.toolbar label{font-size:14px;color:var(--muted);display:inline-flex;gap:6px;align-items:center}
+input[type=search],input[type=number],select{font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+input[type=search]{width:200px}
+input[type=number]{width:90px;text-align:right}
 #info{color:var(--muted);font-size:14px;min-height:1.6em}
 .legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--muted);margin-top:10px}
 .legend i{display:inline-block;width:14px;height:10px;margin-right:6px;vertical-align:middle;border:1px solid var(--line)}
-table{border-collapse:collapse;width:100%;background:var(--surface);border-radius:10px;overflow:hidden}
-th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
-th{width:22%;color:var(--muted);font-weight:500}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;background:var(--surface);border-radius:10px;overflow:hidden;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+thead th{color:var(--muted);font-weight:500;background:var(--bg)}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tfoot td{font-weight:600}
+.kv th{width:22%;color:var(--muted);font-weight:500}
+.note{font-size:13px;color:var(--muted)}
 ol,ul{padding-left:22px}
 li{margin:4px 0}
+.done{color:var(--muted)}
+.done b{color:var(--ink)}
 .dl{display:flex;flex-wrap:wrap;gap:10px}
 .dl a{display:inline-block;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--accent);text-decoration:none}
 .dl a:hover{border-color:var(--accent)}
@@ -58,131 +78,172 @@ footer{color:var(--muted);font-size:13px;margin-top:40px}
 svg text{font-family:inherit}
 .cell{fill:var(--rack);stroke:var(--rack-ink);stroke-width:30;cursor:pointer}
 .cell:hover,.cell.hit{fill:var(--rack-hi)}
+[hidden]{display:none!important}
 </style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
 </head>
 <body>
 <main>
-  <h1>面料仓货架布置 <span class="tag">草稿 v0</span></h1>
-  <p class="sub">3#楼二~七层标准层 · 96m × 24m · 柱网 8m × 8m · 层高 4.3m · 两个防火分区</p>
+  <h1>5 楼面料仓货架规划 <span class="tag">草稿 v1</span></h1>
+  <p class="sub">3#楼 5 层 · 96m × 24m · 柱网 8m × 8m · 层高 4.3m · 两个防火分区（3-7 轴防火卷帘）</p>
 
+  <div class="controls">
+    <div class="seg" role="group" aria-label="方案">
+      <button data-scheme="B" aria-pressed="true">方案 B · 东西向通长（推荐）</button>
+      <button data-scheme="A" aria-pressed="false">方案 A · 南北向短排</button>
+    </div>
+  </div>
+  <p class="desc" id="desc"></p>
   <section class="stats" id="stats" aria-label="指标"></section>
 
-  <h2>平面布置</h2>
+  <h2>布置图</h2>
   <div class="card">
     <div class="toolbar">
-      <div id="info">悬停或点击货架格查看仓位编码</div>
-      <input id="q" type="search" placeholder="查仓位，如 W-R05-03" aria-label="查找仓位">
+      <div class="seg" role="group" aria-label="视图">
+        <button data-view="2d" aria-pressed="true">平面 2D</button>
+        <button data-view="3d" aria-pressed="false">立体 3D</button>
+      </div>
+      <div id="tools2d"><input id="q" type="search" placeholder="查仓位，如 W-03-05" aria-label="查找仓位"></div>
+      <div id="tools3d" hidden>
+        <label><input type="checkbox" id="showRolls" checked> 显示布卷</label>
+        <label>装满率 <input type="range" id="fill" min="0" max="100" value="70"></label>
+      </div>
     </div>
-    <div class="plan-wrap"><svg id="plan" role="img" aria-label="货架平面布置图"></svg></div>
-    <div class="legend">
-      <span><i style="background:var(--rack)"></i>货架单格（每格 2 层）</span>
-      <span><i style="background:var(--core)"></i>核心筒</span>
-      <span><i style="background:var(--zone)"></i>功能区</span>
-      <span><i style="background:var(--aisle)"></i>主通道 3.0m</span>
-      <span><i style="background:var(--shutter-band)"></i>防火卷帘净空带</span>
-      <span><i style="background:var(--shutter)"></i>消火栓（估）</span>
-      <span><i style="background:var(--door)"></i>门</span>
+    <div id="pane2d">
+      <div id="info">悬停或点击货架格查看仓位编码</div>
+      <div class="plan-wrap"><svg id="plan" role="img" aria-label="货架平面布置图"></svg></div>
+      <div class="legend">
+        <span><i style="background:var(--rack)"></i>货架单格（2 层）</span>
+        <span><i style="background:var(--core)"></i>核心筒</span>
+        <span><i style="background:var(--zone)"></i>功能区</span>
+        <span><i style="background:var(--aisle)"></i>主通道 / 横向过道</span>
+        <span><i style="background:var(--shutter-band)"></i>防火卷帘净空带</span>
+        <span><i style="background:var(--shutter)"></i>消火栓（估）</span>
+        <span><i style="background:var(--door)"></i>门</span>
+      </div>
+    </div>
+    <div id="pane3d" hidden>
+      <div id="view3d"><div class="msg" id="msg3d">加载 3D…</div><div class="hint">拖动旋转 · 滚轮/双指缩放 · 右键/双指拖动平移</div></div>
     </div>
   </div>
 
-  <h2>布置思路</h2>
-  <table>
-    <tr><th>货架排向</th><td>南北向（垂直于长边）。通道尽端正对外窗，不挡采光、通风和排烟窗；单条通道约 10m，拣货路线短。</td></tr>
-    <tr><th>单格</th><td>沿通道 2.0m × 进深 1.95m × 2 层，沿用 7 楼 2m 模数；布卷卷轴垂直于通道，可放 180 幅宽。</td></tr>
-    <tr><th>双排 / 通道</th><td>背靠背双排 4.0m；作业通道 2.0m，局部 2.3~3.7m；中部东西向主通道 3.0m，连通两端货梯。</td></tr>
-    <tr><th>柱网处理</th><td>8m 柱距与 6m 的“双排 + 通道”模数不一致，经程序优化，大部分柱子落在货架内（占 1 格）。3-3、3-4、3-10、3-11 轴柱子凸入通道约 0.3m，柱位处通道净宽 1.7m。</td></tr>
-    <tr><th>防火卷帘</th><td>3-7 轴卷帘线两侧各留 1m 净空，带内不放货，可兼作两侧货架的通道。东区按西区镜像布置。</td></tr>
-    <tr><th>功能区</th><td>两部货梯出口各设收发暂存区（约 80 / 75 m²）；东区卫生间旁设验布、分拣、待上架区（约 45 m²）；T2 前室门、消火栓、烟道前方不布货架。</td></tr>
+  <h2>方案对比</h2>
+  <div class="tbl"><table id="cmp"></table></div>
+
+  <h2>用料估算（仅货架，螺栓连接、不烧焊）</h2>
+  <div class="toolbar">
+    <label>立柱 <select id="secPost"></select></label>
+    <label>前后承货梁 <select id="secBeam"></select></label>
+    <label>层间横撑 <select id="secCross"></select></label>
+  </div>
+  <div class="tbl"><table id="bom"></table></div>
+  <p class="note">单价为示例值，可直接改，合计会自动重算（只保存在你这台设备的浏览器里）。定尺按 6m、锯缝 3mm 排料。承货梁实际受力较小（每格每层最多约 750kg，分布在 4 根梁上），改用 60×40×2.5 可明显减重，需结构复核后定。</p>
+  <div class="tbl"><table id="stock"></table></div>
+
+  <h3>节点做法（建议）</h3>
+  <table class="kv">
+    <tr><th>立柱</th><td>80×80 方管，正面和侧面按 50mm 间距冲 φ11 孔，层高可调（布卷 35cm 时二层梁可上调到约 2.1m）。</td></tr>
+    <tr><th>梁柱连接</th><td>L75×75×6 冲孔角码，每端 1 个，M10 螺栓 4 套（柱 2、梁 2）。方管内建议加套管或用长孔角码夹紧，防止螺栓拧紧时压扁管壁。</td></tr>
+    <tr><th>承货方式</th><td>布卷卷轴朝进深方向，每层放前、后两根承货梁加两根中间托梁，140 幅宽的布卷也至少搭在两根梁上。</td></tr>
+    <tr><th>侧片</th><td>每列前后立柱用三道横撑（一层、二层、柱顶）加两道斜撑，组成稳定的侧片。</td></tr>
+    <tr><th>纵向稳定</th><td>背面每 4 格设一道剪刀撑；背靠背的两排在中部和顶部用短管拉结。</td></tr>
+    <tr><th>地脚</th><td>底板 150×150×8，每柱 2 个 M12 机械锚栓。楼板厚度未知，打孔深度要控制，并避开板内管线；必要时改用化学锚栓。</td></tr>
   </table>
+
+  <h2>已确认</h2>
+  <ul class="done">
+    <li><b>楼层：</b>5 层（东端 3-11~3-13 南墙为 JM2 门）。</li>
+    <li><b>7 楼做法：</b>东西向通长货架沿主通道布置，隔一段空一格做过道，即方案 B。</li>
+    <li><b>取放方式：</b>人工爬梯，加辅助小叉车，所以 B 方案通道取 2.3m、主通道 2.65m。</li>
+    <li><b>布卷：</b>直径 35~40cm，每格每层约 16（40cm）~25 卷（35cm），每卷 20~30kg。</li>
+    <li><b>货梯：</b>约 40 卷一趟，满仓需 150~240 趟。</li>
+    <li><b>不吊装：</b>办公室放东南角，验布区放在东货梯收发区和 JM2 门附近。</li>
+    <li><b>管理方式：</b>按品种管理，不要求先进先出，周转不高；仓位编码为 分区-排-格。</li>
+  </ul>
 
   <h2>风险 / 需复核</h2>
   <ol>
-    <li><b>梁底与喷头净空：</b>8m 跨主梁高约 0.6~0.7m，梁底净高可能只有约 3.6m；货顶还要与喷头溅水盘保持规范净距。“2 层 × 2m、货顶 4m”需现场实测，或对照 7 楼做法。</li>
-    <li><b>楼面荷载：</b>按每格每层约 36 卷、25kg/卷估算，货架投影下约 4.6 kN/m²，需对照结构说明的楼面活荷载。</li>
-    <li><b>使用性质：</b>丙类厂房改作面料仓储，可能涉及消防使用功能变更；货物不得占用疏散通道和卷帘下方。</li>
+    <li><b>梁底与喷头净空：</b>立柱按 3.8m 计。8m 跨主梁高约 0.6~0.7m，梁底可能只有约 3.6m，货顶还要和喷头溅水盘保持规范净距，需现场实测。</li>
+    <li><b>楼面荷载：</b>货架投影下最大约 3.8 kN/m²（25 卷 × 30kg × 2 层），全层平均约 1 kN/m²，需对照结构说明。</li>
+    <li><b>螺栓货架稳定性：</b>不烧焊的框架主要靠斜撑、剪刀撑和地钉保证稳定，建议先做一段样架试装、试载。</li>
+    <li><b>叉车：</b>带 1.8m 布卷在 2.3m 通道里行驶，余量约每边 25cm，需要低速通行，转弯在主通道或横向过道进行。</li>
+    <li><b>消防：</b>丙类厂房改作仓储可能涉及使用功能变更；卷帘下方和疏散通道不得堆货。</li>
     <li>核心筒尺寸、门位、消火栓位置为读图估计，需现场复核。</li>
   </ol>
 
-  <h2>待确认</h2>
-  <ol>
-    <li>新仓库在第几层？5~7 层东端（3-11~3-13）与其他层略有不同。</li>
-    <li>7 楼的柱子怎么处理？能否提供 7 楼现场照片或布置草图？</li>
-    <li>上层布卷怎么取放：人工爬梯、登高车，还是堆高车加地毯杆？决定 2m 通道是否够用。</li>
-    <li>每格大概放多少卷？布卷直径约多少？</li>
-    <li>货梯载重和门宽？1.8m 布卷能否平推进出？</li>
-    <li>外墙 JM1a 门（原“卸货平台”）是否还用于吊装或卸货？不用可多排货架。</li>
-    <li>是否需要办公、验布台、裁剪或打包区？各需多大？</li>
-    <li>布卷按客户、品种还是批次管理？是否要求先进先出？</li>
-  </ol>
-
   <h2>下载</h2>
-  <div class="dl">
-    <a href="files/layout_v0.dxf" download>DXF（AutoCAD，单位 mm）</a>
-    <a href="files/layout_v0.pdf">PDF 布置图</a>
-    <a href="files/layout_v0.png">PNG 布置图</a>
-    <a href="data/layout_v0.json">JSON 数据</a>
-  </div>
+  <div class="dl" id="downloads"></div>
 
-  <footer>草稿仅供讨论。底图依据《二~七层平面图》J-4改，坐标原点为 3-1 × 3-A 轴交点。</footer>
+  <footer>草稿仅供讨论。底图依据《二~七层平面图》J-4改、《五~七层局部平面图》，坐标原点为 3-1 × 3-A 轴交点，单位 mm。</footer>
 </main>
 
-<script>
-(async function () {
-  const NS = "http://www.w3.org/2000/svg";
-  const svg = document.getElementById("plan");
-  const info = document.getElementById("info");
-  let d;
-  try {
-    d = await (await fetch("data/layout_v0.json", { cache: "no-cache" })).json();
-  } catch (e) {
-    info.textContent = "数据加载失败：" + e.message;
-    return;
-  }
-  const H = d.outline[3];
-  const Y = (y) => H - y;                     // 图纸 y 向北，SVG y 向下
-  svg.setAttribute("viewBox", "-3200 -3200 102400 31000");
+<script type="module">
+const NS = "http://www.w3.org/2000/svg";
+const $ = (id) => document.getElementById(id);
+const data = {};
+let cur = "B";
+let view = "2d";
 
-  function el(tag, attrs, parent) {
+async function load(k) {
+  if (!data[k]) data[k] = await (await fetch(`data/layout_${k}.json`, { cache: "no-cache" })).json();
+  return data[k];
+}
+
+// ---------------- 指标 ----------------
+const fmt = (n) => n.toLocaleString("zh-CN");
+function renderStats(d) {
+  const s = d.stats;
+  $("desc").textContent = d.desc;
+  const tiles = [
+    [fmt(s.positions_total), "仓位（格 × 2 层）"],
+    [`${fmt(s.rolls_total[0])}~${fmt(s.rolls_total[1])}`, "可存布卷（卷）"],
+    [`${s.west_positions} / ${s.east_positions}`, "西区 / 东区仓位"],
+    [`${d.aisle / 1000} m`, "作业通道宽"],
+    [`${Math.round(s.footprint_ratio * 100)}%`, "货架占地率"],
+    [`${(d.bom.net_kg / 1000).toFixed(1)} t`, "钢材净重（默认规格）"],
+  ];
+  $("stats").innerHTML = tiles.map(([v, t]) => `<div class="stat"><b>${v}</b><span>${t}</span></div>`).join("");
+}
+
+// ---------------- 2D ----------------
+function render2D(d) {
+  const svg = $("plan");
+  svg.replaceChildren();
+  const H = d.outline[3];
+  const Y = (y) => H - y;
+  svg.setAttribute("viewBox", "-3200 -3200 102400 31000");
+  const el = (tag, attrs, parent) => {
     const n = document.createElementNS(NS, tag);
     for (const k in attrs) n.setAttribute(k, attrs[k]);
     (parent || svg).appendChild(n);
     return n;
-  }
-  function rect(r, style, parent) {
-    return el("rect", Object.assign({ x: r[0], y: Y(r[3]), width: r[2] - r[0], height: r[3] - r[1] }, style), parent);
-  }
-  function label(txt, x, y, size, fill, anchor) {
-    const lines = String(txt).split("\n");
-    const t = el("text", { x, y: Y(y) - (lines.length - 1) * size * 0.6, "font-size": size, fill, "text-anchor": anchor || "middle", "dominant-baseline": "middle" });
-    lines.forEach((s, i) => { const ts = el("tspan", { x, dy: i ? size * 1.2 : 0 }, t); ts.textContent = s; });
-    return t;
-  }
-
-  // 底层：通道、卷帘带、功能区、核心筒
+  };
+  const rect = (r, style, parent) => el("rect", Object.assign({ x: r[0], y: Y(r[3]), width: r[2] - r[0], height: r[3] - r[1] }, style), parent);
+  const label = (txt, x, y, size, fill) => {
+    const t = el("text", { x, y: Y(y), "font-size": size, fill, "text-anchor": "middle", "dominant-baseline": "middle" });
+    t.textContent = txt;
+  };
   rect(d.mainAisle, { fill: "var(--aisle)" });
+  d.passages.forEach((p) => rect(p, { fill: "var(--aisle)", opacity: 0.6 }));
   rect(d.shutter.band, { fill: "var(--shutter-band)" });
   d.zones.forEach((z) => {
     rect(z.rect, { fill: "var(--zone)", stroke: "var(--zone-ink)", "stroke-width": 50, "stroke-dasharray": "300 200" });
-    label(z.name, (z.rect[0] + z.rect[2]) / 2, (z.rect[1] + z.rect[3]) / 2, 520, "var(--zone-ink)");
+    label(z.name, (z.rect[0] + z.rect[2]) / 2, (z.rect[1] + z.rect[3]) / 2, 480, "var(--zone-ink)");
   });
   d.cores.forEach((c) => {
     rect(c.rect, { fill: "var(--core)", stroke: "var(--core-ink)", "stroke-width": 60 });
-    label(c.name, (c.rect[0] + c.rect[2]) / 2, (c.rect[1] + c.rect[3]) / 2, 520, "var(--core-ink)");
+    label(c.name, (c.rect[0] + c.rect[2]) / 2, (c.rect[1] + c.rect[3]) / 2, 480, "var(--core-ink)");
   });
-  // 轴网
-  d.grid.x.forEach(([v, n]) => {
-    el("line", { x1: v, x2: v, y1: Y(25000), y2: Y(-1000), stroke: "var(--grid)", "stroke-width": 25, "stroke-dasharray": "600 200 100 200" });
-    label(n, v, -2200, 600, "var(--muted)");
-  });
-  d.grid.y.forEach(([v, n]) => {
-    el("line", { x1: -1000, x2: 97000, y1: Y(v), y2: Y(v), stroke: "var(--grid)", "stroke-width": 25, "stroke-dasharray": "600 200 100 200" });
-    label(n, -2000, v, 600, "var(--muted)");
-  });
+  const dash = { stroke: "var(--grid)", "stroke-width": 25, "stroke-dasharray": "600 200 100 200" };
+  d.grid.x.forEach(([v, n]) => { el("line", { x1: v, x2: v, y1: Y(25000), y2: Y(-1000), ...dash }); label(n, v, -2200, 600, "var(--muted)"); });
+  d.grid.y.forEach(([v, n]) => { el("line", { x1: -1000, x2: 97000, y1: Y(v), y2: Y(v), ...dash }); label(n, -2000, v, 600, "var(--muted)"); });
   rect(d.outline, { fill: "none", stroke: "var(--ink)", "stroke-width": 120 });
-  label("主通道 3.0m", 22000, (d.mainAisle[1] + d.mainAisle[3]) / 2, 700, "var(--aisle-ink)");
-  label("主通道 3.0m", 70000, (d.mainAisle[1] + d.mainAisle[3]) / 2, 700, "var(--aisle-ink)");
+  const my = (d.mainAisle[1] + d.mainAisle[3]) / 2;
+  label(`主通道 ${((d.mainAisle[3] - d.mainAisle[1]) / 1000).toFixed(2)}m`, 30000, my, 650, "var(--aisle-ink)");
+  label(`主通道 ${((d.mainAisle[3] - d.mainAisle[1]) / 1000).toFixed(2)}m`, 66000, my, 650, "var(--aisle-ink)");
 
-  // 货架格
   const cells = new Map();
   const g = el("g", {});
   d.cells.forEach((c) => {
@@ -190,46 +251,339 @@ svg text{font-family:inherit}
     el("title", {}, r).textContent = c.code;
     cells.set(c.code, r);
   });
-  // 上层：卷帘线、柱、消火栓、门
   el("line", { x1: d.shutter.x, x2: d.shutter.x, y1: Y(d.shutter.y[0]), y2: Y(d.shutter.y[1]), stroke: "var(--shutter)", "stroke-width": 160 });
   d.columns.forEach((k) => rect(k, { fill: "var(--col)" }));
   d.hydrants.forEach((h) => rect(h, { fill: "var(--shutter)" }));
   d.doors.forEach((o) => {
     el("circle", { cx: o.x, cy: Y(o.y), r: 380, fill: "var(--door)" });
-    label(o.name, o.x, o.y + (o.y === 0 ? 900 : o.y === 24000 ? -900 : 900), 440, "var(--door)");
+    label(o.name, o.x, o.y + (o.y === 0 ? 900 : o.y === 24000 ? -900 : 900), 420, "var(--door)");
   });
 
-  // 指标
-  const s = d.stats;
-  const tiles = [
-    [s.positions_total, "仓位（格 × 层）"],
-    [s.west_compartment_positions + " / " + s.east_compartment_positions, "西区 / 东区仓位"],
-    [s.cells_per_level, "每层单格数"],
-    [Math.round(s.footprint_ratio * 100) + "%", "货架占地率"],
-    [s.usable_floor_m2 + " m²", "可用面积（扣核心筒）"],
-  ];
-  document.getElementById("stats").innerHTML = tiles.map(([v, t]) => `<div class="stat"><b>${v}</b><span>${t}</span></div>`).join("");
-
-  // 交互
-  function show(code) {
-    const r = cells.get(code);
-    if (!r) return false;
+  const info = $("info");
+  const show = (code) => {
+    const c = d.cells.find((x) => x.code === code);
+    if (!c) return false;
     const [zone, row, slot] = code.split("-");
-    info.textContent = `${code} · ${zone === "W" ? "西区" : "东区"} · 第 ${+row.slice(1)} 排面 · 自南向北第 ${+slot} 格 · ${d.levels} 层`;
+    const dir = { N: "朝北取货", S: "朝南取货", E: "朝东取货", W: "朝西取货", NS: "南北两面可取" }[c.face];
+    const along = d.orient === "x" ? "自西向东" : "自南向北";
+    info.textContent = `${code} · ${zone === "W" ? "西区" : "东区"} · 第 ${+row} 排 · ${along}第 ${+slot} 格 · ${dir} · ${d.levels} 层`;
     return true;
-  }
-  g.addEventListener("mouseover", (e) => e.target.dataset.code && show(e.target.dataset.code));
-  g.addEventListener("click", (e) => e.target.dataset.code && show(e.target.dataset.code));
-  g.addEventListener("focusin", (e) => e.target.dataset.code && show(e.target.dataset.code));
-  document.getElementById("q").addEventListener("input", (e) => {
-    const q = e.target.value.trim().toUpperCase();
+  };
+  const pick = (e) => e.target.dataset && e.target.dataset.code && show(e.target.dataset.code);
+  g.addEventListener("mouseover", pick);
+  g.addEventListener("click", pick);
+  g.addEventListener("focusin", pick);
+  const q = $("q");
+  q.oninput = () => {
+    const v = q.value.trim().toUpperCase();
     cells.forEach((r) => r.classList.remove("hit"));
-    if (!q) return;
+    if (!v) return;
     let n = 0;
-    cells.forEach((r, code) => { if (code.includes(q)) { r.classList.add("hit"); n++; } });
-    if (!show(q)) info.textContent = n ? `匹配 ${n} 格` : "无匹配仓位";
+    cells.forEach((r, code) => { if (code.includes(v)) { r.classList.add("hit"); n++; } });
+    if (!show(v)) info.textContent = n ? `匹配 ${n} 格` : "无匹配仓位";
+  };
+  q.oninput();
+}
+
+// ---------------- 用料 ----------------
+const SECTIONS = {  // kg/m = (2(b+h)-4t)·t·7.85e-3
+  "方管 80×80×3": 7.25, "方管 80×80×2.5": 6.08, "方管 60×60×2.5": 4.51,
+  "矩管 80×40×2.5": 4.51, "矩管 60×40×2.5": 3.73, "矩管 60×40×2": 3.01, "方管 40×40×2": 2.39,
+};
+const DEFAULT_SEC = { post: "方管 80×80×3", beam: "方管 80×80×3", cross: "方管 80×80×3", mid: "矩管 60×40×2", diag: "方管 40×40×2", xbr: "方管 40×40×2", tie: "方管 40×40×2" };
+const DEFAULT_PRICE = { steel: 5.0, base: 15, anchor: 2.5, angle: 2.0, clip: 0.8, bolt: 1.2, bolt_s: 0.8 };
+let prices = { ...DEFAULT_PRICE };
+try { Object.assign(prices, JSON.parse(localStorage.getItem("wh-prices") || "{}")); } catch (e) {}
+const savePrices = () => { try { localStorage.setItem("wh-prices", JSON.stringify(prices)); } catch (e) {} };
+
+function initSecSelects() {
+  for (const [id, key, opts] of [["secPost", "post", ["方管 80×80×3", "方管 80×80×2.5", "方管 60×60×2.5"]],
+                                 ["secBeam", "beam", ["方管 80×80×3", "方管 80×80×2.5", "矩管 80×40×2.5", "矩管 60×40×2.5"]],
+                                 ["secCross", "cross", ["方管 80×80×3", "方管 80×80×2.5", "方管 60×60×2.5", "矩管 60×40×2.5"]]]) {
+    const s = $(id);
+    s.innerHTML = opts.map((o) => `<option>${o}</option>`).join("");
+    s.value = DEFAULT_SEC[key];
+    s.onchange = () => renderBOM(data[cur]);
+  }
+}
+function sections() {
+  return { ...DEFAULT_SEC, post: $("secPost").value, beam: $("secBeam").value, cross: $("secCross").value };
+}
+function cutBars(pieces) {  // 6m 定尺首次适应递减
+  const bars = [];
+  pieces.sort((a, b) => b - a).forEach((p) => {
+    const i = bars.findIndex((r) => r >= p + 3);
+    if (i >= 0) bars[i] -= p + 3; else bars.push(6000 - p - 3);
   });
-})();
+  return bars.length;
+}
+function computeBOM(d) {
+  const sec = sections();
+  let steelKg = 0, cost = 0;
+  const rows = d.bom.items.map((it) => {
+    let spec = it.spec, unitKg = it.unit_kg, kg = it.kg, price, amount;
+    if (it.len_mm) {
+      spec = sec[it.key] + (it.key === "tie" ? " L=300" : "");
+      unitKg = SECTIONS[sec[it.key]] * it.len_mm / 1000;
+      kg = unitKg * it.qty;
+      steelKg += kg;
+      price = null; amount = kg * prices.steel;
+    } else {
+      price = prices[it.key];
+      amount = price * it.qty;
+      if (unitKg) steelKg += kg;
+    }
+    cost += amount;
+    return { ...it, spec, unitKg, kg, price, amount };
+  });
+  const bySec = {};
+  rows.filter((r) => r.len_mm).forEach((r) => {
+    const s = sec[r.key];
+    (bySec[s] = bySec[s] || []).push(...Array(r.qty).fill(r.len_mm));
+  });
+  const stock = Object.entries(bySec).map(([s, pieces]) => {
+    const bars = cutBars(pieces.slice());
+    const net = pieces.reduce((a, b) => a + b, 0) / 1000;
+    return { s, bars, net, usage: net / (bars * 6), kg: bars * 6 * SECTIONS[s] };
+  });
+  return { rows, steelKg, cost, stock };
+}
+function renderBOM(d) {
+  const r = computeBOM(d);
+  const f0 = (n) => Math.round(n).toLocaleString("zh-CN");
+  const priceCell = (it) => it.len_mm ? `<span class="note">按重量</span>` :
+    `<input type="number" step="0.1" min="0" data-price="${it.key}" value="${it.price}" aria-label="${it.name}单价">`;
+  $("bom").innerHTML = `<thead><tr><th>部件</th><th>规格</th><th class="n">长度</th><th class="n">数量</th><th class="n">单重 kg</th><th class="n">重量 kg</th><th class="n">单价 元</th><th class="n">金额 元</th></tr></thead>
+    <tbody>${r.rows.map((it) => `<tr><td>${it.name}</td><td>${it.spec}</td><td class="n">${it.len_mm ? it.len_mm + "mm" : "—"}</td>
+      <td class="n">${f0(it.qty)} ${it.unit}</td><td class="n">${it.unitKg ? it.unitKg.toFixed(2) : "—"}</td>
+      <td class="n">${it.unitKg ? f0(it.kg) : "—"}</td><td class="n">${priceCell(it)}</td><td class="n">${f0(it.amount)}</td></tr>`).join("")}</tbody>
+    <tfoot><tr><td colspan="5">钢材 <label class="note">单价 <input type="number" step="0.1" min="0" data-price="steel" value="${prices.steel}" aria-label="钢材单价"> 元/kg</label></td>
+      <td class="n">${f0(r.steelKg)}</td><td></td><td class="n">${f0(r.cost)}</td></tr>
+      <tr><td colspan="7">每个仓位（格·层）摊销</td><td class="n">${f0(r.cost / d.stats.positions_total)} 元 · ${(r.steelKg / d.stats.positions_total).toFixed(0)} kg</td></tr></tfoot>`;
+  $("bom").querySelectorAll("input[data-price]").forEach((inp) => {
+    inp.onchange = () => { prices[inp.dataset.price] = parseFloat(inp.value) || 0; savePrices(); renderBOM(d); };
+  });
+  $("stock").innerHTML = `<thead><tr><th>型材（6m 定尺）</th><th class="n">根数</th><th class="n">净用量 m</th><th class="n">利用率</th><th class="n">采购重量 kg</th></tr></thead>
+    <tbody>${r.stock.map((s) => `<tr><td>${s.s}</td><td class="n">${f0(s.bars)}</td><td class="n">${f0(s.net)}</td><td class="n">${(s.usage * 100).toFixed(1)}%</td><td class="n">${f0(s.kg)}</td></tr>`).join("")}</tbody>`;
+  return r;
+}
+
+// ---------------- 对比 ----------------
+async function renderCompare() {
+  const [a, b] = [await load("A"), await load("B")];
+  const ra = computeBOMFor(a), rb = computeBOMFor(b);
+  const row = (t, fa, fb) => `<tr><th>${t}</th><td>${fb}</td><td>${fa}</td></tr>`;
+  $("cmp").innerHTML = `<thead><tr><th></th><th>方案 B · 东西向通长（推荐）</th><th>方案 A · 南北向短排</th></tr></thead><tbody>
+    ${row("仓位（格×层）", a.stats.positions_total, b.stats.positions_total)}
+    ${row("可存布卷", `${fmt(a.stats.rolls_total[0])}~${fmt(a.stats.rolls_total[1])}`, `${fmt(b.stats.rolls_total[0])}~${fmt(b.stats.rolls_total[1])}`)}
+    ${row("作业通道 / 主通道", "2.0m（柱位处 1.7m）/ 3.0m", "2.3m / 2.65m")}
+    ${row("小叉车", "通道偏窄，基本只能走主通道", "可进作业通道（低速）")}
+    ${row("货架段数（独立框架）", a.stats.runs, b.stats.runs)}
+    ${row("钢材（默认规格）", `${(ra.steelKg / 1000).toFixed(1)} t`, `${(rb.steelKg / 1000).toFixed(1)} t`)}
+    ${row("与 7 楼一致", "否", "是，编码、作业习惯可沿用")}
+    ${row("采光 / 排烟窗", "通道尽端对窗，基本不挡", "南北墙各有一排靠墙货架，挡下部窗")}
+    ${row("找货路线", "排短，进出快", "排长，靠横向过道分段（4 处）")}
+  </tbody>`;
+}
+function computeBOMFor(d) { return computeBOM(d); }
+
+// ---------------- 3D ----------------
+let three = null;
+async function render3D(d) {
+  const box = $("view3d");
+  if (!three) {
+    try {
+      const THREE = await import("three");
+      const { OrbitControls } = await import("three/addons/controls/OrbitControls.js");
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      box.prepend(renderer.domElement);
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 500);
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.target.set(0, 0, 0);
+      controls.enableDamping = true;
+      controls.maxPolarAngle = Math.PI * 0.49;
+      scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8f8a, 1.6));
+      const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+      sun.position.set(-30, 60, 40);
+      scene.add(sun);
+      const group = new THREE.Group();
+      scene.add(group);
+      const resize = () => {
+        const w = box.clientWidth, h = box.clientHeight;
+        renderer.setSize(w, h, false);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+      };
+      new ResizeObserver(resize).observe(box);
+      resize();
+      // 初始视角：整层可见，窄屏拉远
+      const k = Math.max(1, 1.8 / camera.aspect);
+      camera.position.set(-8 * k, 52 * k, 60 * k);
+      const loop = () => { controls.update(); renderer.render(scene, camera); requestAnimationFrame(loop); };
+      loop();
+      three = { THREE, scene, group, camera, controls };
+      window.__wh3d = three;   // 便于调试/截图
+      $("msg3d").remove();
+    } catch (e) {
+      $("msg3d").textContent = "3D 加载失败（需联网加载 three.js）：" + e.message;
+      return;
+    }
+  }
+  build3D(d);
+}
+
+function cssColor(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function build3D(d) {
+  const { THREE, scene, group } = three;
+  group.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+  group.clear();
+  scene.background = new THREE.Color(cssColor("--scene"));
+  const M = 1 / 1000;
+  const X = (x) => x * M - 48, Z = (y) => -(y * M - 12);
+  const mat = (c, extra) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85, metalness: 0.05, ...extra });
+
+  // 地面、通道、功能区
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(96, 24), mat(0xd9dcd6));
+  floor.rotation.x = -Math.PI / 2;
+  group.add(floor);
+  const flat = (r, color, y, opacity = 1) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry((r[2] - r[0]) * M, (r[3] - r[1]) * M),
+      mat(color, { transparent: opacity < 1, opacity }));
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(X((r[0] + r[2]) / 2), y, Z((r[1] + r[3]) / 2));
+    group.add(m);
+  };
+  flat(d.mainAisle, 0x9cc8ef, 0.005);
+  d.passages.forEach((p) => flat(p, 0xbcd9f2, 0.004));
+  flat(d.shutter.band, 0xf2b0b0, 0.006);
+  d.zones.forEach((z) => flat(z.rect, 0xf4dc8a, 0.007));
+
+  // 外墙(半透明)、卷帘
+  const wallMat = mat(0xb9bdb8, { transparent: true, opacity: 0.25, depthWrite: false });
+  const H = d.floor_h * M;
+  for (const [x0, y0, x1, y1] of [[0, 0, 96000, 200], [0, 23800, 96000, 24000], [0, 0, 200, 24000], [95800, 0, 96000, 24000]]) {
+    const w = new THREE.Mesh(new THREE.BoxGeometry((x1 - x0) * M, H, (y1 - y0) * M), wallMat);
+    w.position.set(X((x0 + x1) / 2), H / 2, Z((y0 + y1) / 2));
+    group.add(w);
+  }
+  const sh = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.4, 15.7), mat(0xe23b3b));
+  sh.position.set(X(d.shutter.x), H - 0.2, Z((d.shutter.y[0] + d.shutter.y[1]) / 2));
+  group.add(sh);
+
+  // 柱、核心筒
+  const colGeo = new THREE.BoxGeometry(0.6, H, 0.6);
+  const cols = new THREE.InstancedMesh(colGeo, mat(0x8d928d), d.columns.length);
+  const m4 = new THREE.Matrix4();
+  d.columns.forEach((k, i) => { m4.makeTranslation(X((k[0] + k[2]) / 2), H / 2, Z((k[1] + k[3]) / 2)); cols.setMatrixAt(i, m4); });
+  group.add(cols);
+  d.cores.forEach((c) => {
+    const r = c.rect;
+    const b = new THREE.Mesh(new THREE.BoxGeometry((r[2] - r[0]) * M, H, (r[3] - r[1]) * M),
+      mat(0x9aa09a, { transparent: true, opacity: 0.55 }));
+    b.position.set(X((r[0] + r[2]) / 2), H / 2, Z((r[1] + r[3]) / 2));
+    group.add(b);
+  });
+
+  // 货架：按段生成立柱、承货梁、托梁、横撑
+  const rk = d.rack, T = rk.tube * M;
+  const posts = [], beams = [], mids = [], crosses = [], rolls = [];
+  d.runs.forEach((run) => {
+    const [x0, y0, x1, y1] = run.rect;
+    const alongX = run.axis === "x";
+    const a0 = alongX ? x0 : y0, n = run.n;
+    const c0 = alongX ? y0 : x0, c1 = alongX ? y1 : x1;   // 进深方向
+    const P = (a, c, z) => alongX ? [X(a), z, Z(c)] : [X(c), z, Z(a)];
+    const frontBack = [c0 + rk.tube / 2, c1 - rk.tube / 2];
+    const midC = [c0 + (c1 - c0) / 3, c0 + (c1 - c0) * 2 / 3];
+    for (let i = 0; i <= n; i++) {
+      const a = a0 + i * rk.cell + (i === 0 ? rk.tube / 2 : i === n ? -rk.tube / 2 : 0);
+      frontBack.forEach((c) => posts.push(P(a, c, rk.post_h * M / 2)));
+      [...rk.beam_z, rk.post_h].forEach((z) => crosses.push({ p: P(a, (c0 + c1) / 2, z * M - T / 2), alongX }));
+    }
+    for (let i = 0; i < n; i++) {
+      const am = a0 + (i + 0.5) * rk.cell;
+      rk.beam_z.forEach((z, li) => {
+        frontBack.forEach((c) => beams.push({ p: P(am, c, z * M - T / 2), alongX }));
+        midC.forEach((c) => mids.push({ p: P(am, c, z * M - 0.02), alongX }));
+        rolls.push({ am, c0, c1, z, alongX, P, seed: (x0 * 7 + y0 * 13 + i * 31 + li * 17) % 997 });
+      });
+    }
+  });
+  const steel = mat(0x3b6fa8, { metalness: 0.3, roughness: 0.6 });
+  const beamMat = mat(0xe08a2e, { metalness: 0.2, roughness: 0.6 });
+  const inst = (geo, material, list, place) => {
+    const im = new THREE.InstancedMesh(geo, material, list.length);
+    list.forEach((it, i) => { place(it, m4); im.setMatrixAt(i, m4); });
+    group.add(im);
+  };
+  inst(new THREE.BoxGeometry(T, rk.post_h * M, T), steel, posts, (p, m) => m.makeTranslation(...p));
+  const cl = (rk.cell - rk.tube) * M, dl = (rk.side - 2 * rk.tube) * M;
+  const rotY = new THREE.Matrix4().makeRotationY(Math.PI / 2);
+  const placeAlong = (it, m) => { m.makeTranslation(...it.p); if (!it.alongX) m.multiply(rotY); };
+  inst(new THREE.BoxGeometry(cl, T, T), beamMat, beams, placeAlong);
+  inst(new THREE.BoxGeometry(cl, 0.04, 0.06), beamMat, mids, placeAlong);
+  inst(new THREE.BoxGeometry(T, T, dl), steel, crosses, (it, m) => { m.makeTranslation(...it.p); if (!it.alongX) m.multiply(rotY); });
+
+  // 布卷：卷轴朝进深方向
+  if ($("showRolls").checked) {
+    const fill = $("fill").value / 100;
+    const D = 0.38, L = 1.6, nW = Math.floor((rk.cell - rk.tube) / (D * 1000)), nH = Math.floor((rk.beam_z[1] - rk.beam_z[0] - rk.tube) / (D * 1000));
+    const palette = [0x6b8fb3, 0xb36b6b, 0xc9b26b, 0x7aa37a, 0x8f7ab3, 0xd0d0c8, 0x5c6b7a, 0xb38f6b];
+    const list = [];
+    rolls.forEach((r) => {
+      const count = Math.round(nW * nH * Math.min(1, fill * (0.6 + ((r.seed * 37) % 100) / 125)));
+      for (let k = 0; k < count; k++) {
+        const col = k % nW, row = Math.floor(k / nW);
+        const a = r.am - (nW * D) / 2 * 1000 + (col + 0.5) * D * 1000;
+        const p = r.P(a, (r.c0 + r.c1) / 2, r.z * M + D / 2 + row * D);
+        list.push({ p, alongX: r.alongX, c: palette[r.seed % palette.length] });
+      }
+    });
+    const geo = new THREE.CylinderGeometry(D / 2 * 0.96, D / 2 * 0.96, L, 14);
+    const im = new THREE.InstancedMesh(geo, mat(0xffffff), list.length);
+    const rotX = new THREE.Matrix4().makeRotationX(Math.PI / 2);
+    const rotZ = new THREE.Matrix4().makeRotationZ(Math.PI / 2);
+    const color = new THREE.Color();
+    list.forEach((it, i) => {
+      m4.makeTranslation(...it.p);
+      m4.multiply(it.alongX ? rotX : rotZ);  // 圆柱轴从 y 转到进深方向
+      im.setMatrixAt(i, m4);
+      im.setColorAt(i, color.setHex(it.c));
+    });
+    group.add(im);
+  }
+}
+
+// ---------------- 切换 ----------------
+async function show() {
+  const d = await load(cur);
+  document.querySelectorAll("[data-scheme]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.scheme === cur));
+  document.querySelectorAll("[data-view]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.view === view));
+  $("pane2d").hidden = $("tools2d").hidden = view !== "2d";
+  $("pane3d").hidden = $("tools3d").hidden = view !== "3d";
+  renderStats(d);
+  renderBOM(d);
+  if (view === "2d") render2D(d); else await render3D(d);
+  $("downloads").innerHTML = ["A", "B"].map((k) =>
+    `<a href="files/layout_5F_${k}_v1.dxf" download>方案 ${k} · DXF</a><a href="files/layout_5F_${k}_v1.pdf">方案 ${k} · PDF</a><a href="files/layout_5F_${k}_v1.png">方案 ${k} · PNG</a>`).join("") +
+    `<a href="data/layout_${cur}.json">当前方案 JSON</a>`;
+}
+document.querySelectorAll("[data-scheme]").forEach((b) => b.onclick = () => { cur = b.dataset.scheme; show(); });
+document.querySelectorAll("[data-view]").forEach((b) => b.onclick = () => { view = b.dataset.view; show(); });
+$("showRolls").onchange = $("fill").onchange = () => three && build3D(data[cur]);
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => three && build3D(data[cur]));
+initSecSelects();
+try {
+  await show();
+  await renderCompare();
+} catch (e) {
+  $("info").textContent = "数据加载失败：" + e.message;
+}
 </script>
 </body>
 </html>
