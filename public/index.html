@@ -139,13 +139,13 @@ svg text{font-family:inherit}
     <label>层间横撑 <select id="secCross"></select></label>
   </div>
   <div class="tbl"><table id="bom"></table></div>
-  <p class="note">单价为示例值，可直接改，合计会自动重算（只保存在你这台设备的浏览器里）。定尺按 6m、锯缝 3mm 排料。承货梁实际受力较小（每格每层最多约 750kg，分布在 4 根梁上），改用 60×40×2.5 可明显减重，需结构复核后定。</p>
+  <p class="note">单价为示例值，可直接改，合计会自动重算（只保存在你这台设备的浏览器里）。定尺按 6m、锯缝 3mm 排料。默认主材已按确认的 40×40×2 计算；下拉可切换规格对比（梁、撑净长随立柱截面自动变化）。40×40 壁厚、立柱稳定性和梁挠度需结构复核后定。</p>
   <div class="tbl"><table id="stock"></table></div>
 
   <h3>节点做法（建议）</h3>
   <table class="kv">
-    <tr><th>立柱</th><td>80×80 方管，正面和侧面按 50mm 间距冲 φ11 孔，层高可调（布卷 35cm 时二层梁可上调到约 2.1m）。</td></tr>
-    <tr><th>梁柱连接</th><td>L75×75×6 冲孔角码，每端 1 个，M10 螺栓 4 套（柱 2、梁 2）。方管内建议加套管或用长孔角码夹紧，防止螺栓拧紧时压扁管壁。</td></tr>
+    <tr><th>立柱</th><td>40×40 方管，正面和侧面按 50mm 间距冲 φ11 孔，层高可调（布卷 35cm 时二层梁可上调到约 2.1m）。</td></tr>
+    <tr><th>梁柱连接</th><td>L75×75×6 冲孔角码，每端 1 个，M10 螺栓 4 套（柱 2、梁 2）。40×40 管壁薄，M10 螺栓处必须加套管，角码建议改小规格（L50 左右）并复核。</td></tr>
     <tr><th>承货方式</th><td>布卷卷轴朝进深方向，每层放前、后两根承货梁加两根中间托梁，140 幅宽的布卷也至少搭在两根梁上。</td></tr>
     <tr><th>侧片</th><td>每列前后立柱用三道横撑（一层、二层、柱顶）加两道斜撑，组成稳定的侧片。</td></tr>
     <tr><th>纵向稳定</th><td>背面每 4 格设一道剪刀撑；背靠背的两排在中部和顶部用短管拉结。</td></tr>
@@ -287,25 +287,35 @@ function render2D(d) {
 }
 
 // ---------------- 用料 ----------------
-const SECTIONS = {  // kg/m = (2(b+h)-4t)·t·7.85e-3
-  "方管 80×80×3": 7.25, "方管 80×80×2.5": 6.08, "方管 60×60×2.5": 4.51,
-  "矩管 80×40×2.5": 4.51, "矩管 60×40×2.5": 3.73, "矩管 60×40×2": 3.01, "方管 40×40×2": 2.39,
+const SECTIONS = {  // kg/m = (2(b+h)-4t)·t·7.85e-3；w = 截面宽（影响梁/撑净长）
+  "方管 40×40×2": { kg: 2.39, w: 40 }, "方管 40×40×2.5": { kg: 2.94, w: 40 }, "方管 40×40×3": { kg: 3.49, w: 40 },
+  "方管 50×50×2.5": { kg: 3.73, w: 50 }, "方管 60×60×2.5": { kg: 4.51, w: 60 },
+  "方管 80×80×2.5": { kg: 6.08, w: 80 }, "方管 80×80×3": { kg: 7.25, w: 80 },
+  "矩管 60×40×2": { kg: 3.01, w: 40 }, "矩管 60×40×2.5": { kg: 3.73, w: 40 }, "矩管 80×40×2.5": { kg: 4.51, w: 40 },
 };
-const DEFAULT_SEC = { post: "方管 80×80×3", beam: "方管 80×80×3", cross: "方管 80×80×3", mid: "矩管 60×40×2", diag: "方管 40×40×2", xbr: "方管 40×40×2", tie: "方管 40×40×2" };
+const MAIN_OPTS = ["方管 40×40×2", "方管 40×40×2.5", "方管 40×40×3", "方管 50×50×2.5", "方管 60×60×2.5", "方管 80×80×2.5", "方管 80×80×3"];
+const DEFAULT_SEC = { post: "方管 40×40×2", beam: "方管 40×40×2", cross: "方管 40×40×2", mid: "矩管 60×40×2", diag: "方管 40×40×2", xbr: "方管 40×40×2", tie: "方管 40×40×2" };
 const DEFAULT_PRICE = { steel: 5.0, base: 15, anchor: 2.5, angle: 2.0, clip: 0.8, bolt: 1.2, bolt_s: 0.8 };
 let prices = { ...DEFAULT_PRICE };
 try { Object.assign(prices, JSON.parse(localStorage.getItem("wh-prices") || "{}")); } catch (e) {}
 const savePrices = () => { try { localStorage.setItem("wh-prices", JSON.stringify(prices)); } catch (e) {} };
 
 function initSecSelects() {
-  for (const [id, key, opts] of [["secPost", "post", ["方管 80×80×3", "方管 80×80×2.5", "方管 60×60×2.5"]],
-                                 ["secBeam", "beam", ["方管 80×80×3", "方管 80×80×2.5", "矩管 80×40×2.5", "矩管 60×40×2.5"]],
-                                 ["secCross", "cross", ["方管 80×80×3", "方管 80×80×2.5", "方管 60×60×2.5", "矩管 60×40×2.5"]]]) {
+  for (const [id, key, opts] of [["secPost", "post", MAIN_OPTS],
+                                 ["secBeam", "beam", [...MAIN_OPTS, "矩管 60×40×2", "矩管 60×40×2.5", "矩管 80×40×2.5"]],
+                                 ["secCross", "cross", MAIN_OPTS]]) {
     const s = $(id);
     s.innerHTML = opts.map((o) => `<option>${o}</option>`).join("");
     s.value = DEFAULT_SEC[key];
-    s.onchange = () => renderBOM(data[cur]);
+    s.onchange = () => { renderBOM(data[cur]); if (view === "3d" && three) build3D(data[cur]); };
   }
+}
+// 立柱截面宽决定梁、撑、托梁的净长；选 80 方管时长度会自动缩短 40mm / 80mm
+const tubeW = () => SECTIONS[$("secPost").value].w;
+function lenOf(key, d) {
+  const r = d.rack, t = tubeW();
+  return { post: r.post_h, beam: r.cell - t, cross: r.side - 2 * t, mid: r.cell - t,
+           diag: Math.round(Math.hypot(r.side - 2 * t, r.beam_z[1])), xbr: Math.round(Math.hypot(r.cell, r.beam_z[1])), tie: 300 }[key];
 }
 function sections() {
   return { ...DEFAULT_SEC, post: $("secPost").value, beam: $("secBeam").value, cross: $("secCross").value };
@@ -325,7 +335,8 @@ function computeBOM(d) {
     let spec = it.spec, unitKg = it.unit_kg, kg = it.kg, price, amount;
     if (it.len_mm) {
       spec = sec[it.key] + (it.key === "tie" ? " L=300" : "");
-      unitKg = SECTIONS[sec[it.key]] * it.len_mm / 1000;
+      it = { ...it, len_mm: lenOf(it.key, d) };
+      unitKg = SECTIONS[sec[it.key]].kg * it.len_mm / 1000;
       kg = unitKg * it.qty;
       steelKg += kg;
       price = null; amount = kg * prices.steel;
@@ -345,7 +356,7 @@ function computeBOM(d) {
   const stock = Object.entries(bySec).map(([s, pieces]) => {
     const bars = cutBars(pieces.slice());
     const net = pieces.reduce((a, b) => a + b, 0) / 1000;
-    return { s, bars, net, usage: net / (bars * 6), kg: bars * 6 * SECTIONS[s] };
+    return { s, bars, net, usage: net / (bars * 6), kg: bars * 6 * SECTIONS[s].kg };
   });
   return { rows, steelKg, cost, stock };
 }
@@ -491,7 +502,7 @@ function build3D(d) {
   });
 
   // 货架：按段生成立柱、承货梁、托梁、横撑
-  const rk = d.rack, T = rk.tube * M;
+  const rk = { ...d.rack, tube: tubeW() }, T = rk.tube * M;
   const posts = [], beams = [], mids = [], crosses = [], rolls = [];
   d.runs.forEach((run) => {
     const [x0, y0, x1, y1] = run.rect;

@@ -57,7 +57,7 @@ DOORS = [  # (x, y, 说明)
 CELL = 2000          # 单格沿排方向中心距
 SIDE = 1950          # 单排进深(外框)
 FLUE = 100           # 背靠背间隙
-TUBE = 80            # 主材 80×80 方管
+TUBE = 40            # 主材 40×40 方管（已确认；网页下拉可切换其它规格对比）
 LEVELS = 2
 BEAM_Z = [150, 2000]          # 各层承货面标高(梁顶)，螺栓孔距 50 可调
 POST_H = 3800                 # 立柱高度(需复核梁底/喷头净空)
@@ -258,9 +258,9 @@ def rhs_kg_m(b, h, t):
 
 
 MATERIALS = {  # key: (名称, 规格, 单位, 单重kg)
-    "post":  ("立柱", "方管 80×80×3", "根", None),
-    "beam":  ("前后承货梁", "方管 80×80×3", "根", None),
-    "cross": ("层间横撑(进深向)", "方管 80×80×3", "根", None),
+    "post":  ("立柱", "方管 40×40×2", "根", None),
+    "beam":  ("前后承货梁", "方管 40×40×2", "根", None),
+    "cross": ("层间横撑(进深向)", "方管 40×40×2", "根", None),
     "mid":   ("中间托梁", "矩管 60×40×2", "根", None),
     "diag":  ("侧片斜撑", "方管 40×40×2", "根", None),
     "xbr":   ("背面剪刀撑", "方管 40×40×2", "根", None),
@@ -277,8 +277,8 @@ LEN = {  # 单件长度 mm
     "diag": round(math.hypot(SIDE - 2 * TUBE, BEAM_Z[1])), "xbr": round(math.hypot(CELL, BEAM_Z[1])),
     "tie": 300,
 }
-KG_M = {"80": rhs_kg_m(80, 80, 3), "6040": rhs_kg_m(60, 40, 2), "40": rhs_kg_m(40, 40, 2)}
-SECTION = {"post": "80", "beam": "80", "cross": "80", "mid": "6040", "diag": "40", "xbr": "40", "tie": "40"}
+KG_M = {"6040": rhs_kg_m(60, 40, 2), "40": rhs_kg_m(40, 40, 2)}
+SECTION = {"post": "40", "beam": "40", "cross": "40", "mid": "6040", "diag": "40", "xbr": "40", "tie": "40"}
 XBR_EVERY = 4    # 每 4 格设一道背面剪刀撑(2 根)
 
 
@@ -328,7 +328,7 @@ def bom(runs):
                       "kg": round(kg)})
     # 6m 定尺下料(首次适应递减，锯缝 3mm)
     stock = {}
-    for sec, label in (("80", "方管 80×80×3"), ("6040", "矩管 60×40×2"), ("40", "方管 40×40×2")):
+    for sec, label in (("6040", "矩管 60×40×2"), ("40", "方管 40×40×2")):
         pieces = []
         for k, s in SECTION.items():
             if s == sec:
@@ -512,7 +512,7 @@ def main():
         draw_dxf(d, OUT / f"layout_{tag}.dxf")
         (DATA / f"layout_{key}.json").write_text(json.dumps(d, ensure_ascii=False, separators=(",", ":")))
         summary[key] = {**d["stats"], "steel_kg": d["bom"]["net_kg"],
-                        "bars_80x80_6m": d["bom"]["stock_6m"]["方管 80×80×3"]["bars_6m"]}
+                        "bars_40x40_6m": d["bom"]["stock_6m"]["方管 40×40×2"]["bars_6m"]}
     print(json.dumps(summary, ensure_ascii=False, indent=1))
 
 
