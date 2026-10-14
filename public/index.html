@@ -91,8 +91,8 @@ svg text{font-family:inherit}
 
   <div class="controls">
     <div class="seg" role="group" aria-label="方案">
-      <button data-scheme="A" aria-pressed="true">方案 A · 南北向短排（主方案）</button>
-      <button data-scheme="B" aria-pressed="false">方案 B · 东西向通长（备选）</button>
+      <button data-scheme="A" aria-pressed="true">方案 A · 南北向短排</button>
+      <button data-scheme="B" aria-pressed="false">方案 B · 东西向通长</button>
     </div>
   </div>
   <p class="desc" id="desc"></p>
@@ -155,7 +155,7 @@ svg text{font-family:inherit}
   <h2>已确认</h2>
   <ul class="done">
     <li><b>楼层：</b>5 层（东端 3-11~3-13 南墙为 JM2 门）。</li>
-    <li><b>7 楼做法：</b>东西向通长货架沿主通道布置，隔一段空一格做过道，即方案 B；5 楼已定以南北向方案 A 为主。</li>
+    <li><b>7 楼做法：</b>东西向通长货架沿主通道布置，隔一段空一格做过道，即方案 B；5 楼以南北向方案 A 为主展示。</li>
     <li><b>取放方式：</b>人工爬梯，加辅助小叉车，方案 A 作业通道 2.0m、主通道 3.0m（小叉车基本只走主通道）；方案 B 通道 2.3m、主通道 2.65m。</li>
     <li><b>布卷：</b>直径 35~40cm，每格每层约 16（40cm）~25 卷（35cm），每卷 20~30kg。</li>
     <li><b>货梯：</b>约 40 卷一趟，满仓需 150~240 趟。</li>
@@ -385,7 +385,7 @@ async function renderCompare() {
   const [a, b] = [await load("A"), await load("B")];
   const ra = computeBOMFor(a), rb = computeBOMFor(b);
   const row = (t, fa, fb) => `<tr><th>${t}</th><td>${fa}</td><td>${fb}</td></tr>`;
-  $("cmp").innerHTML = `<thead><tr><th></th><th>方案 A · 南北向短排（主方案）</th><th>方案 B · 东西向通长（备选）</th></tr></thead><tbody>
+  $("cmp").innerHTML = `<thead><tr><th></th><th>方案 A · 南北向短排</th><th>方案 B · 东西向通长</th></tr></thead><tbody>
     ${row("仓位（格×层）", a.stats.positions_total, b.stats.positions_total)}
     ${row("可存布卷", `${fmt(a.stats.rolls_total[0])}~${fmt(a.stats.rolls_total[1])}`, `${fmt(b.stats.rolls_total[0])}~${fmt(b.stats.rolls_total[1])}`)}
     ${row("作业通道 / 主通道", "2.0m（柱位处 1.7m）/ 3.0m", "2.3m / 2.65m")}
