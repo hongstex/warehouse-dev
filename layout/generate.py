@@ -258,16 +258,16 @@ def rhs_kg_m(b, h, t):
 
 
 MATERIALS = {  # key: (名称, 规格, 单位, 单重kg)
-    "post":  ("立柱", "方管 40×40×2", "根", None),
-    "beam":  ("前后承货梁", "方管 40×40×2", "根", None),
-    "cross": ("层间横撑(进深向)", "方管 40×40×2", "根", None),
+    "post":  ("立柱", "方管 40×40×2.5", "根", None),
+    "beam":  ("前后承货梁", "方管 40×40×2.5", "根", None),
+    "cross": ("层间横撑(进深向)", "方管 40×40×2.5", "根", None),
     "mid":   ("中间托梁", "矩管 60×40×2", "根", None),
     "diag":  ("侧片斜撑", "方管 40×40×2", "根", None),
     "xbr":   ("背面剪刀撑", "方管 40×40×2", "根", None),
     "tie":   ("背靠背连接/顶拉杆", "方管 40×40×2 L=300", "根", None),
     "base":  ("立柱底座", "底板 150×150×8 + 连接角码", "套", 2.2),
     "anchor": ("地钉(膨胀螺栓)", "M12×100 机械锚栓", "套", None),
-    "angle": ("梁端角码", "L75×75×6 L=100 冲孔", "个", 0.68),
+    "angle": ("梁端角码", "L50×50×5 L=60 冲孔", "个", 0.23),
     "clip":  ("托梁卡件", "U 型卡 / 小角码", "个", 0.15),
     "bolt":  ("螺栓", "M10×100 8.8 级 + 螺母 + 2 垫片", "套", None),
     "bolt_s": ("螺栓(斜撑)", "M8×100 + 螺母 + 垫片", "套", None),
@@ -277,8 +277,8 @@ LEN = {  # 单件长度 mm
     "diag": round(math.hypot(SIDE - 2 * TUBE, BEAM_Z[1])), "xbr": round(math.hypot(CELL, BEAM_Z[1])),
     "tie": 300,
 }
-KG_M = {"6040": rhs_kg_m(60, 40, 2), "40": rhs_kg_m(40, 40, 2)}
-SECTION = {"post": "40", "beam": "40", "cross": "40", "mid": "6040", "diag": "40", "xbr": "40", "tie": "40"}
+KG_M = {"6040": rhs_kg_m(60, 40, 2), "40": rhs_kg_m(40, 40, 2), "40b": rhs_kg_m(40, 40, 2.5)}
+SECTION = {"post": "40b", "beam": "40b", "cross": "40b", "mid": "6040", "diag": "40", "xbr": "40", "tie": "40"}
 XBR_EVERY = 4    # 每 4 格设一道背面剪刀撑(2 根)
 
 
@@ -328,7 +328,7 @@ def bom(runs):
                       "kg": round(kg)})
     # 6m 定尺下料(首次适应递减，锯缝 3mm)
     stock = {}
-    for sec, label in (("6040", "矩管 60×40×2"), ("40", "方管 40×40×2")):
+    for sec, label in (("6040", "矩管 60×40×2"), ("40", "方管 40×40×2"), ("40b", "方管 40×40×2.5")):
         pieces = []
         for k, s in SECTION.items():
             if s == sec:
@@ -512,7 +512,7 @@ def main():
         draw_dxf(d, OUT / f"layout_{tag}.dxf")
         (DATA / f"layout_{key}.json").write_text(json.dumps(d, ensure_ascii=False, separators=(",", ":")))
         summary[key] = {**d["stats"], "steel_kg": d["bom"]["net_kg"],
-                        "bars_40x40_6m": d["bom"]["stock_6m"]["方管 40×40×2"]["bars_6m"]}
+                        "bars_40x40x2.5_6m": d["bom"]["stock_6m"]["方管 40×40×2.5"]["bars_6m"]}
     print(json.dumps(summary, ensure_ascii=False, indent=1))
 
 
