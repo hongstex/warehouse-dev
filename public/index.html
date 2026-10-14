@@ -145,11 +145,11 @@ svg text{font-family:inherit}
   <h3>节点做法（建议）</h3>
   <table class="kv">
     <tr><th>立柱</th><td>50×50 方管，正面和侧面按 50mm 间距冲 φ11 孔，层高可调（布卷 35cm 时二层梁可上调到约 2.1m）。</td></tr>
-    <tr><th>梁柱连接</th><td>L50×50×5 冲孔角码（长 60），每端 1 个，M10 螺栓 4 套（柱 2、梁 2）。50×50 管壁较薄，M10 螺栓处建议加套管，节点承载需复核。</td></tr>
+    <tr><th>梁柱连接</th><td>L50×50×5 冲孔角码（长 80，两颗螺栓按 50mm 孔距），每端 1 个，M10×80 螺栓 4 套（柱 2、梁 2），每个过管螺栓加 Φ16 套管防压扁；节点承载需复核。</td></tr>
     <tr><th>承货方式</th><td>布卷卷轴朝进深方向，每层放前、后两根承货梁加两根中间托梁，140 幅宽的布卷也至少搭在两根梁上。</td></tr>
     <tr><th>侧片</th><td>每列前后立柱用三道横撑（一层、二层、柱顶）加两道斜撑，组成稳定的侧片。</td></tr>
     <tr><th>纵向稳定</th><td>背面每 4 格设一道剪刀撑；背靠背的两排在中部和顶部用短管拉结。</td></tr>
-    <tr><th>地脚</th><td>底板 150×150×8，每柱 2 个 M12 机械锚栓。楼板厚度未知，打孔深度要控制，并避开板内管线；必要时改用化学锚栓。</td></tr>
+    <tr><th>地脚</th><td>底板 120×120×6，每柱 2 个 M12 机械锚栓。楼板厚度未知，打孔深度要控制，并避开板内管线；必要时改用化学锚栓。</td></tr>
   </table>
 
   <h2>已确认</h2>
@@ -295,7 +295,7 @@ const SECTIONS = {  // kg/m = (2(b+h)-4t)·t·7.85e-3；w = 截面宽（影响�
 };
 const MAIN_OPTS = ["方管 40×40×2", "方管 40×40×2.5", "方管 40×40×3", "方管 50×50×2.5", "方管 60×60×2.5", "方管 80×80×2.5", "方管 80×80×3"];
 const DEFAULT_SEC = { post: "方管 50×50×2.5", beam: "方管 50×50×2.5", cross: "方管 50×50×2.5", mid: "矩管 60×40×2", diag: "方管 40×40×2", xbr: "方管 40×40×2", tie: "方管 40×40×2" };
-const DEFAULT_PRICE = { steel: 5.0, base: 15, anchor: 2.5, angle: 2.0, clip: 0.8, bolt: 1.2, bolt_s: 0.8 };
+const DEFAULT_PRICE = { steel: 5.0, base: 15, anchor: 2.5, angle: 2.0, clip: 0.8, bolt: 1.2, bolt_s: 0.8, sleeve: 0.3 };
 let prices = { ...DEFAULT_PRICE };
 try { Object.assign(prices, JSON.parse(localStorage.getItem("wh-prices") || "{}")); } catch (e) {}
 const savePrices = () => { try { localStorage.setItem("wh-prices", JSON.stringify(prices)); } catch (e) {} };
