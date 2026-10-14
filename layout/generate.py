@@ -57,7 +57,7 @@ DOORS = [  # (x, y, 说明)
 CELL = 2000          # 单格沿排方向中心距
 SIDE = 1950          # 单排进深(外框)
 FLUE = 100           # 背靠背间隙
-TUBE = 80            # 主材 80×80 方管
+TUBE = 50            # 主材 50×50×2.5 方管（已确认；网页下拉可切换其它规格对比）
 LEVELS = 2
 BEAM_Z = [150, 2000]          # 各层承货面标高(梁顶)，螺栓孔距 50 可调
 POST_H = 3800                 # 立柱高度(需复核梁底/喷头净空)
@@ -258,18 +258,19 @@ def rhs_kg_m(b, h, t):
 
 
 MATERIALS = {  # key: (名称, 规格, 单位, 单重kg)
-    "post":  ("立柱", "方管 80×80×3", "根", None),
-    "beam":  ("前后承货梁", "方管 80×80×3", "根", None),
-    "cross": ("层间横撑(进深向)", "方管 80×80×3", "根", None),
+    "post":  ("立柱", "方管 50×50×2.5", "根", None),
+    "beam":  ("前后承货梁", "方管 50×50×2.5", "根", None),
+    "cross": ("层间横撑(进深向)", "方管 50×50×2.5", "根", None),
     "mid":   ("中间托梁", "矩管 60×40×2", "根", None),
     "diag":  ("侧片斜撑", "方管 40×40×2", "根", None),
     "xbr":   ("背面剪刀撑", "方管 40×40×2", "根", None),
     "tie":   ("背靠背连接/顶拉杆", "方管 40×40×2 L=300", "根", None),
-    "base":  ("立柱底座", "底板 150×150×8 + 连接角码", "套", 2.2),
+    "base":  ("立柱底座", "底板 120×120×6 + L50 连接角码", "套", 1.1),
     "anchor": ("地钉(膨胀螺栓)", "M12×100 机械锚栓", "套", None),
-    "angle": ("梁端角码", "L75×75×6 L=100 冲孔", "个", 0.68),
+    "angle": ("梁端角码", "L50×50×5 L=80 冲孔", "个", 0.30),
     "clip":  ("托梁卡件", "U 型卡 / 小角码", "个", 0.15),
-    "bolt":  ("螺栓", "M10×100 8.8 级 + 螺母 + 2 垫片", "套", None),
+    "bolt":  ("螺栓", "M10×80 8.8 级 + 螺母 + 2 垫片", "套", None),
+    "sleeve": ("防压套管", "Φ16×2.5 钢管 L=50", "个", 0.04),
     "bolt_s": ("螺栓(斜撑)", "M8×100 + 螺母 + 垫片", "套", None),
 }
 LEN = {  # 单件长度 mm
@@ -277,8 +278,8 @@ LEN = {  # 单件长度 mm
     "diag": round(math.hypot(SIDE - 2 * TUBE, BEAM_Z[1])), "xbr": round(math.hypot(CELL, BEAM_Z[1])),
     "tie": 300,
 }
-KG_M = {"80": rhs_kg_m(80, 80, 3), "6040": rhs_kg_m(60, 40, 2), "40": rhs_kg_m(40, 40, 2)}
-SECTION = {"post": "80", "beam": "80", "cross": "80", "mid": "6040", "diag": "40", "xbr": "40", "tie": "40"}
+KG_M = {"6040": rhs_kg_m(60, 40, 2), "40": rhs_kg_m(40, 40, 2), "50": rhs_kg_m(50, 50, 2.5)}
+SECTION = {"post": "50", "beam": "50", "cross": "50", "mid": "6040", "diag": "40", "xbr": "40", "tie": "40"}
 XBR_EVERY = 4    # 每 4 格设一道背面剪刀撑(2 根)
 
 
@@ -314,6 +315,7 @@ def bom(runs):
         q["bolt_s"] += 2 * (2 * lines) + 2 * (2 * math.ceil(n / XBR_EVERY))   # 斜撑/剪刀撑两端
     q["tie"] = 2 * back_to_back(runs)      # 每列中部 + 顶部各 1
     q["bolt"] = 4 * q["angle"] + 2 * q["base"] + 2 * q["tie"]
+    q["sleeve"] = q["bolt"]                # 每个 M10 过管处 1 个套管，防止拧紧压扁 50 方管
 
     items = []
     total_kg = 0.0
@@ -328,7 +330,7 @@ def bom(runs):
                       "kg": round(kg)})
     # 6m 定尺下料(首次适应递减，锯缝 3mm)
     stock = {}
-    for sec, label in (("80", "方管 80×80×3"), ("6040", "矩管 60×40×2"), ("40", "方管 40×40×2")):
+    for sec, label in (("6040", "矩管 60×40×2"), ("40", "方管 40×40×2"), ("50", "方管 50×50×2.5")):
         pieces = []
         for k, s in SECTION.items():
             if s == sec:
@@ -512,7 +514,7 @@ def main():
         draw_dxf(d, OUT / f"layout_{tag}.dxf")
         (DATA / f"layout_{key}.json").write_text(json.dumps(d, ensure_ascii=False, separators=(",", ":")))
         summary[key] = {**d["stats"], "steel_kg": d["bom"]["net_kg"],
-                        "bars_80x80_6m": d["bom"]["stock_6m"]["方管 80×80×3"]["bars_6m"]}
+                        "bars_50x50x2.5_6m": d["bom"]["stock_6m"]["方管 50×50×2.5"]["bars_6m"]}
     print(json.dumps(summary, ensure_ascii=False, indent=1))
 
 
