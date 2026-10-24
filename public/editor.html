@@ -1,0 +1,1617 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>货架编辑器</title>
+<meta name="description" content="自己动手摆货架平面、搭货架结构，导出 JSON 发给 Claude。">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect x=%221%22 y=%223%22 width=%224%22 height=%2210%22 fill=%22%236fae6e%22/%3E%3Crect x=%226%22 y=%223%22 width=%224%22 height=%2210%22 fill=%22%236fae6e%22/%3E%3Crect x=%2211%22 y=%223%22 width=%224%22 height=%2210%22 fill=%22%236fae6e%22/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#f6f7f5;--surface:#fff;--ink:#1d2320;--muted:#5f6b65;--line:#d9ded9;
+  --rack:#6fae6e;--rack-ink:#2d5a2c;--rack-hi:#f0a630;--core:#c4c8c5;--core-ink:#6a706c;
+  --zone:#fff1bf;--zone-ink:#a87a00;--aisle:#dcecfb;--aisle-ink:#1f6fb8;
+  --shutter:#e23b3b;--shutter-band:#fbd9d9;--grid:#e07a7a;--col:#3d4440;--door:#b03ab0;
+  --accent:#2e7d4f;--accent-bg:#e4f2e9;--scene:#eef1ee;
+  --sel:#2f7fe0;--sel-bg:#cfe2fb;--bad:#d93a3a;--bad-bg:#f7cfcf;--ghost:#7d8a83;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#121614;--surface:#1b201d;--ink:#e6ebe7;--muted:#9aa59f;--line:#2e3631;
+  --rack:#4f8f50;--rack-ink:#a8d8a6;--core:#3a403c;--core-ink:#9aa29d;
+  --zone:#3d3418;--zone-ink:#e3bd52;--aisle:#17324a;--aisle-ink:#7fb8ec;
+  --shutter-band:#4a1f1f;--grid:#9a4a4a;--col:#c9cfcb;--door:#e08ae0;--accent:#6cc28f;--accent-bg:#1d3326;--scene:#1a1f1c;
+  --sel:#6aa8f0;--sel-bg:#1f3a5c;--bad:#f06b6b;--bad-bg:#4a2222;--ghost:#8b968f;
+}}
+:root[data-theme="dark"]{
+  --bg:#121614;--surface:#1b201d;--ink:#e6ebe7;--muted:#9aa59f;--line:#2e3631;
+  --rack:#4f8f50;--rack-ink:#a8d8a6;--core:#3a403c;--core-ink:#9aa29d;
+  --zone:#3d3418;--zone-ink:#e3bd52;--aisle:#17324a;--aisle-ink:#7fb8ec;
+  --shutter-band:#4a1f1f;--grid:#9a4a4a;--col:#c9cfcb;--door:#e08ae0;--accent:#6cc28f;--accent-bg:#1d3326;--scene:#1a1f1c;
+  --sel:#6aa8f0;--sel-bg:#1f3a5c;--bad:#f06b6b;--bad-bg:#4a2222;--ghost:#8b968f;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;display:flex;flex-direction:column;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif}
+a{color:var(--accent)}
+.top{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;padding:8px 12px;background:var(--surface);border-bottom:1px solid var(--line)}
+.top h1{font-size:16px;margin:0 6px 0 0;white-space:nowrap}
+.top .sp{flex:1}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--surface)}
+.seg button{font:inherit;font-size:14px;border:0;background:transparent;color:var(--muted);padding:6px 14px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent-bg);color:var(--accent);font-weight:600}
+.btn{font:inherit;font-size:14px;padding:5px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);cursor:pointer;white-space:nowrap;text-decoration:none;display:inline-block}
+.btn:hover{border-color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:default;border-color:var(--line)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--surface);font-weight:600}
+.btn.sm{font-size:13px;padding:3px 9px}
+.app{flex:1;min-height:0;display:grid;grid-template-columns:74px minmax(0,1fr) 320px}
+.tools{display:flex;flex-direction:column;gap:4px;padding:8px 6px;background:var(--surface);border-right:1px solid var(--line);overflow:auto}
+.tool{display:flex;flex-direction:column;align-items:center;gap:1px;font:inherit;font-size:12px;line-height:1.25;padding:7px 2px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--muted);cursor:pointer}
+.tool .ic{font-size:19px;line-height:1.1}
+.tool kbd{font:10px ui-monospace,monospace;opacity:.6}
+.tool:hover{color:var(--ink)}
+.tool[aria-pressed="true"]{background:var(--accent-bg);color:var(--accent);border-color:var(--accent)}
+.stage{position:relative;min-width:0;min-height:0;overflow:hidden;background:var(--scene)}
+#plan{display:block;width:100%;height:100%;touch-action:none;user-select:none;-webkit-user-select:none}
+#stage3d canvas{display:block;width:100%;height:100%;touch-action:none}
+.hud{position:absolute;left:8px;right:8px;bottom:6px;display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--muted);pointer-events:none}
+.hud span{background:var(--surface);opacity:.92;border-radius:6px;padding:2px 8px}
+.hint{position:absolute;left:8px;top:8px;font-size:13px;color:var(--muted);background:var(--surface);opacity:.94;border-radius:7px;padding:4px 10px;pointer-events:none;max-width:calc(100% - 130px)}
+.zoom{position:absolute;right:8px;top:8px;display:flex;gap:4px}
+.msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);padding:20px;text-align:center}
+.panel{overflow:auto;background:var(--surface);border-left:1px solid var(--line);padding:12px 14px 40px;font-size:14px}
+.panel h3{font-size:13px;color:var(--muted);font-weight:600;margin:18px 0 8px}
+.panel h3:first-child{margin-top:0}
+.fields{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 10px;align-items:center}
+.fields label{color:var(--muted);font-size:13px;white-space:nowrap}
+input,select,textarea{font:inherit;font-size:14px;padding:5px 8px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);width:100%;min-width:0}
+input[type=checkbox]{width:auto}
+textarea{min-height:110px;resize:vertical;line-height:1.5}
+.row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
+.kv{display:grid;grid-template-columns:1fr auto;gap:3px 10px}
+.kv b{font-variant-numeric:tabular-nums;text-align:right;font-weight:600}
+.muted{color:var(--muted);font-size:13px;margin:4px 0}
+.badlist{margin:0;padding-left:18px;font-size:13px}
+.badlist li{cursor:pointer;color:var(--bad);margin:2px 0}
+table.bom{width:100%;border-collapse:collapse;font-size:13px}
+table.bom td,table.bom th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+table.bom th{color:var(--muted);font-weight:500}
+table.bom td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+table.bom select{font-size:12px;padding:2px 4px;margin-top:3px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:8px 16px;border-radius:8px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
+.toast.on{opacity:.95}
+[hidden]{display:none!important}
+
+/* 平面 svg */
+svg text{font-family:inherit}
+.rk{fill:var(--rack);stroke:var(--rack-ink);stroke-width:1;vector-effect:non-scaling-stroke}
+.rack .div{stroke:var(--rack-ink);stroke-width:.6;opacity:.7;vector-effect:non-scaling-stroke}
+.rack .face{stroke:var(--rack-ink);stroke-width:3;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.rack text{fill:var(--rack-ink);pointer-events:none}
+.rack.sel .rk{fill:var(--sel-bg);stroke:var(--sel);stroke-width:2.5}
+.rack.bad .rk{fill:var(--bad-bg);stroke:var(--bad);stroke-width:2}
+.rack.bad.sel .rk{stroke:var(--sel)}
+.zone .zr{fill:var(--zone);stroke:var(--zone-ink);stroke-width:1.2;vector-effect:non-scaling-stroke}
+.zone.aisle .zr{fill:var(--aisle);stroke:var(--aisle-ink);stroke-opacity:.5}
+.zone.sel .zr{stroke:var(--sel);stroke-width:2.5;stroke-opacity:1}
+.zone text{fill:var(--zone-ink);pointer-events:none}
+.zone.aisle text{fill:var(--aisle-ink)}
+.pin circle{fill:var(--door)}
+.pin.sel circle{stroke:var(--sel);stroke-width:3;vector-effect:non-scaling-stroke}
+.pin text,.halo{paint-order:stroke;stroke:var(--surface);stroke-linejoin:round}
+.pin text{fill:var(--ink)}
+.dim line{stroke:var(--accent);stroke-width:1.5;vector-effect:non-scaling-stroke}
+.dim text{fill:var(--accent)}
+.dim.sel line{stroke:var(--sel);stroke-width:2.5}
+.dimhit{stroke:transparent;stroke-width:14;vector-effect:non-scaling-stroke}
+.gap line{stroke:var(--aisle-ink);stroke-width:1.2;vector-effect:non-scaling-stroke}
+.gap text{fill:var(--aisle-ink);font-weight:600}
+.gap.tight line{stroke:var(--bad)} .gap.tight text{fill:var(--bad)}
+.ghostrun{fill:none;stroke:var(--ghost);stroke-width:1.2;stroke-dasharray:5 4;vector-effect:non-scaling-stroke}
+.preview{fill:var(--sel-bg);fill-opacity:.7;stroke:var(--sel);stroke-width:1.5;vector-effect:non-scaling-stroke}
+.preview.bad{fill:var(--bad-bg);stroke:var(--bad)}
+.boxsel{fill:var(--sel);fill-opacity:.08;stroke:var(--sel);stroke-width:1;stroke-dasharray:4 3;vector-effect:non-scaling-stroke}
+.handle{fill:var(--surface);stroke:var(--sel);stroke-width:1.5;vector-effect:non-scaling-stroke;cursor:nwse-resize;pointer-events:all}
+#Lovl,#Lfixed,#Lghost{pointer-events:none}
+#plan.t-select .rack,#plan.t-select .zone,#plan.t-select .pin,#plan.t-select .dim,#plan.t-box .rack{cursor:move}
+
+@media (max-width:820px){
+  html,body{height:auto}
+  .app{grid-template-columns:1fr;grid-template-rows:auto 62vh auto}
+  .tools{flex-direction:row;border-right:0;border-bottom:1px solid var(--line);overflow-x:auto}
+  .tool{min-width:58px}
+  .panel{border-left:0;border-top:1px solid var(--line);overflow:visible}
+  .hint{font-size:12px}
+}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+</head>
+<body>
+<header class="top">
+  <h1>货架编辑器</h1>
+  <div class="seg" role="group" aria-label="页面">
+    <button data-tab="plan" aria-pressed="true">平面布置</button>
+    <button data-tab="frame" aria-pressed="false">货架结构</button>
+  </div>
+  <span class="sp"></span>
+  <button class="btn" id="undo" title="撤销 (Ctrl/⌘+Z)">↶ 撤销</button>
+  <button class="btn" id="redo" title="重做 (Ctrl/⌘+Shift+Z)">↷ 重做</button>
+  <button class="btn" id="imp">导入</button>
+  <button class="btn" id="exp">导出 JSON</button>
+  <button class="btn pri" id="copy">复制给 Claude</button>
+  <a class="btn" href="./">← 方案展示</a>
+  <input type="file" id="file" accept=".json,application/json" hidden>
+</header>
+
+<!-- ============ 平面布置 ============ -->
+<section class="app" id="appPlan">
+  <nav class="tools" id="ptools" aria-label="平面工具">
+    <button class="tool" data-tool="select"><span class="ic">↖</span>选择<kbd>V</kbd></button>
+    <button class="tool" data-tool="box"><span class="ic">⬚</span>框选<kbd>Shift</kbd></button>
+    <button class="tool" data-tool="rack"><span class="ic">▥</span>放货架<kbd>B</kbd></button>
+    <button class="tool" data-tool="zone"><span class="ic">▭</span>画区域<kbd>Z</kbd></button>
+    <button class="tool" data-tool="pin"><span class="ic">✎</span>文字<kbd>N</kbd></button>
+    <button class="tool" data-tool="dim"><span class="ic">↔</span>量尺<kbd>M</kbd></button>
+  </nav>
+  <div class="stage" id="stagePlan">
+    <svg id="plan" class="t-select" aria-label="平面布置编辑区">
+      <g id="vp"><g id="Lbld"></g><g id="Lghost"></g><g id="Lzones"></g><g id="Lracks"></g><g id="Lfixed"></g><g id="Lanno"></g><g id="Lovl"></g></g>
+    </svg>
+    <div class="hint" id="phint"></div>
+    <div class="zoom"><button class="btn sm" id="pfit" title="全图 (F)">全图</button></div>
+    <div class="hud"><span id="phud">&nbsp;</span><span id="pcoord"></span></div>
+    <div class="msg" id="pmsg">加载底图…</div>
+  </div>
+  <aside class="panel">
+    <h3 id="propsTitle">选中</h3>
+    <div id="props"></div>
+    <h3>统计</h3>
+    <div class="kv" id="pstats"></div>
+    <div id="pconfWrap"><h3>冲突（红色）</h3><ul class="badlist" id="pconf"></ul></div>
+    <h3>设置</h3>
+    <div class="fields">
+      <label for="step">吸附步长</label>
+      <select id="step"><option value="10">10 mm</option><option value="50">50 mm</option><option value="100">100 mm</option><option value="500">500 mm</option></select>
+      <label for="aisle">通道宽吸附</label>
+      <input type="number" id="aisle" step="50" min="0">
+      <label for="ghost">对照原方案</label>
+      <select id="ghost"><option value="none">不显示</option><option value="A">方案 A 虚线</option><option value="B">方案 B 虚线</option></select>
+    </div>
+    <p class="muted">拖动货架时会自动对齐其他货架、柱子的边线，或与它们隔开"通道宽"/100 背靠背缝。按住 Alt 拖动只按步长吸附。</p>
+    <div class="row">
+      <select id="restartBase" style="width:auto"><option value="A">从方案 A 开始</option><option value="B">从方案 B 开始</option><option value="blank">空白（只留功能区）</option></select>
+      <button class="btn sm" id="restart">重新开始</button>
+    </div>
+    <h3>给 Claude 的说明</h3>
+    <textarea class="notes" placeholder="比如：西区想改成东西向；办公室挪到…；通道至少要 2.5m…"></textarea>
+  </aside>
+</section>
+
+<!-- ============ 货架结构 ============ -->
+<section class="app" id="appFrame" hidden>
+  <nav class="tools" id="ftools" aria-label="搭建工具">
+    <button class="tool" data-ftool="view"><span class="ic">⟳</span>看<kbd>1</kbd></button>
+    <button class="tool" data-ftool="post"><span class="ic">┃</span>立柱<kbd>2</kbd></button>
+    <button class="tool" data-ftool="beam"><span class="ic">━</span>横梁<kbd>3</kbd></button>
+    <button class="tool" data-ftool="brace"><span class="ic">╱</span>斜撑<kbd>4</kbd></button>
+    <button class="tool" data-ftool="deck"><span class="ic">☰</span>托梁层<kbd>5</kbd></button>
+    <button class="tool" data-ftool="roll"><span class="ic">◎</span>布卷<kbd>6</kbd></button>
+    <button class="tool" data-ftool="erase"><span class="ic">⌫</span>拆除<kbd>E</kbd></button>
+  </nav>
+  <div class="stage" id="stage3d">
+    <div class="hint" id="fhint"></div>
+    <div class="zoom"><button class="btn sm" id="ffit" title="复位视角 (F)">复位</button><button class="btn sm" id="shot">截图</button></div>
+    <div class="msg" id="fmsg">加载 3D…</div>
+  </div>
+  <aside class="panel">
+    <h3>起点</h3>
+    <div class="row" style="margin-top:0">
+      <select id="preset" style="width:auto"><option value="unit">现方案单元（2 格 × 2 层）</option><option value="b2b">背靠背双排</option><option value="blank">空白网格</option></select>
+      <button class="btn sm" id="loadPreset">载入</button>
+    </div>
+    <h3>网格线（mm，逗号分隔）</h3>
+    <div class="fields">
+      <label for="lx">沿排 X</label><input id="lx" inputmode="numeric">
+      <label for="ly">高度 Y</label><input id="ly" inputmode="numeric">
+      <label for="lz">进深 Z</label><input id="lz" inputmode="numeric">
+    </div>
+    <div class="row">
+      <button class="btn sm" data-line="x+">+ 一格</button><button class="btn sm" data-line="x-">− 一格</button>
+      <button class="btn sm" data-line="y+">+ 一层</button><button class="btn sm" data-line="y-">− 一层</button>
+      <button class="btn sm" data-line="z+">+ 进深</button><button class="btn sm" data-line="z-">− 进深</button>
+    </div>
+    <p class="muted">改数字，构件跟着伸缩（比如把 2000 改成 2100 = 二层梁抬高）。"+ 一格 / 一层"会复制最后一格 / 一层的构件。</p>
+    <h3>用料（按轴线长度估）</h3>
+    <div id="fbom"></div>
+    <h3>给 Claude 的说明</h3>
+    <textarea class="notes" placeholder="比如：二层梁想调到 2.1m；斜撑太多，只要背面…"></textarea>
+  </aside>
+</section>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+const NS = "http://www.w3.org/2000/svg";
+const LS_KEY = "wh-editor-v1";
+const uid = () => Math.random().toString(36).slice(2, 9);
+const clone = (o) => JSON.parse(JSON.stringify(o));
+const m2 = (mm) => (mm / 1000).toFixed(2);
+const cssVar = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+const SECTIONS = {  // kg/m；w = 截面宽 mm
+  "方管 40×40×2": { kg: 2.39, w: 40 }, "方管 40×40×2.5": { kg: 2.94, w: 40 }, "方管 40×40×3": { kg: 3.49, w: 40 },
+  "方管 50×50×2.5": { kg: 3.73, w: 50 }, "方管 60×60×2.5": { kg: 4.51, w: 60 },
+  "方管 80×80×2.5": { kg: 6.08, w: 80 }, "方管 80×80×3": { kg: 7.25, w: 80 },
+  "矩管 60×40×2": { kg: 3.01, w: 40 }, "矩管 60×40×2.5": { kg: 3.73, w: 40 }, "矩管 80×40×2.5": { kg: 4.51, w: 40 },
+};
+const DEF_SEC = { post: "方管 50×50×2.5", beamX: "方管 50×50×2.5", beamZ: "方管 50×50×2.5", brace: "方管 40×40×2", joist: "矩管 60×40×2" };
+
+let B = null;          // 建筑底图（柱网、核心筒等，取自 layout_A.json）
+const BASE = {};       // 原方案 A / B
+let H = 24000;
+let S = null;          // 编辑状态，导出的就是它
+let sel = new Set();
+let tab = "plan";
+
+// ================= 状态 / 撤销 / 保存 =================
+function racksFrom(d) {
+  return d.runs.map((r) => {
+    const w = r.rect[2] - r.rect[0], h = r.rect[3] - r.rect[1];
+    const len = r.axis === "x" ? w : h, dep = r.axis === "x" ? h : w;
+    return { id: uid(), x: r.rect[0], y: r.rect[1], n: r.n, axis: r.axis, cell: Math.round(len / r.n), depth: dep, levels: d.levels, face: r.face };
+  });
+}
+function zonesFrom(d) {
+  return [
+    { id: uid(), kind: "aisle", name: "主通道", r: [...d.mainAisle] },
+    ...d.passages.map((p) => ({ id: uid(), kind: "aisle", name: "过道", r: [...p] })),
+    ...d.zones.map((z) => ({ id: uid(), kind: "zone", name: z.name, r: [...z.rect] })),
+  ];
+}
+function freshPlan(base) {
+  const d = BASE[base] || BASE.A;
+  return { racks: base === "blank" ? [] : racksFrom(d), zones: zonesFrom(d), pins: [], dims: [] };
+}
+function fresh() {
+  return { format: "warehouse-edit", v: 1, base: "A", notes: "", set: { step: 50, aisle: 2000, ghost: "none" }, plan: freshPlan("A"), frame: presetFrame("unit") };
+}
+function migrate(s) {
+  const f = fresh();
+  s.set = { ...f.set, ...(s.set || {}) };
+  s.plan = { ...f.plan, ...(s.plan || {}) };
+  for (const k of ["racks", "zones", "pins", "dims"]) s.plan[k] = s.plan[k] || [];
+  s.frame = s.frame && s.frame.xs ? s.frame : f.frame;
+  s.frame.sec = { ...DEF_SEC, ...(s.frame.sec || {}) };
+  s.frame.m = s.frame.m || {};
+  s.notes = s.notes || "";
+  delete s.summary; delete s.savedAt;
+  return s;
+}
+const P = () => S.plan;
+
+const undoStack = [], redoStack = [];
+function snap() {
+  undoStack.push(JSON.stringify(S));
+  if (undoStack.length > 300) undoStack.shift();
+  redoStack.length = 0;
+  updateUndo();
+}
+function undo() { if (!undoStack.length) return; redoStack.push(JSON.stringify(S)); S = JSON.parse(undoStack.pop()); afterLoad(); }
+function redo() { if (!redoStack.length) return; undoStack.push(JSON.stringify(S)); S = JSON.parse(redoStack.pop()); afterLoad(); }
+function updateUndo() { $("undo").disabled = !undoStack.length; $("redo").disabled = !redoStack.length; }
+function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {} }
+function changed() { save(); requestRender(); buildFrame(); renderFramePanel(); updateUndo(); }
+function afterLoad() {
+  const ids = new Set(allObjs().map((it) => it.o.id));
+  sel = new Set([...sel].filter((id) => ids.has(id)));
+  panelSig = "";
+  syncSettings();
+  changed();
+}
+
+let toastT = 0;
+function toast(t) { const n = $("toast"); n.textContent = t; n.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => n.classList.remove("on"), 2200); }
+
+// ================= 平面：几何 =================
+function rr(k) {
+  const L = k.n * k.cell;
+  return k.axis === "x" ? [k.x, k.y, k.x + L, k.y + k.depth] : [k.x, k.y, k.x + k.depth, k.y + L];
+}
+const ov = (a, b) => Math.min(a[2], b[2]) - Math.max(a[0], b[0]) > 1 && Math.min(a[3], b[3]) - Math.max(a[1], b[1]) > 1;
+const normFace = (s) => (s.includes("N") && s.includes("S") ? "NS" : s.includes("E") && s.includes("W") ? "EW" : s);
+const TYPE_NAME = { rack: "货架", zone: "区域", pin: "文字标注", dim: "尺寸" };
+
+function allObjs() {
+  const p = P();
+  return [...p.racks.map((o) => ({ type: "rack", o })), ...p.zones.map((o) => ({ type: "zone", o })),
+    ...p.pins.map((o) => ({ type: "pin", o })), ...p.dims.map((o) => ({ type: "dim", o }))];
+}
+function findObj(id) { return allObjs().find((it) => it.o.id === id); }
+function selItems() { return allObjs().filter((it) => sel.has(it.o.id)); }
+function bbox(it) {
+  const o = it.o;
+  if (it.type === "rack") return rr(o);
+  if (it.type === "zone") return o.r;
+  if (it.type === "pin") return [o.x, o.y, o.x, o.y];
+  return [Math.min(o.a[0], o.b[0]), Math.min(o.a[1], o.b[1]), Math.max(o.a[0], o.b[0]), Math.max(o.a[1], o.b[1])];
+}
+function unionBox(items) {
+  return items.map(bbox).reduce((a, b) => [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])]);
+}
+
+function conflictsOf(r, selfId) {
+  const why = new Set();
+  const [X0, Y0, X1, Y1] = B.outline;
+  if (r[0] < X0 || r[1] < Y0 || r[2] > X1 || r[3] > Y1) why.add("超出外墙");
+  for (const k of P().racks) if (k.id !== selfId && ov(r, rr(k))) { why.add("和别的货架重叠"); break; }
+  if (B.columns.some((c) => ov(r, c))) why.add("压到柱子");
+  for (const c of B.cores) if (ov(r, c.rect)) why.add("进入" + c.name);
+  if (B.hydrants.some((h) => ov(r, h))) why.add("挡消火栓");
+  if (ov(r, B.shutter.band)) why.add("占防火卷帘带");
+  for (const z of P().zones) if (ov(r, z.r)) why.add("占用" + z.name);
+  return [...why];
+}
+let bad = new Map();
+function computeConflicts() {
+  bad = new Map();
+  for (const k of P().racks) { const w = conflictsOf(rr(k), k.id); if (w.length) bad.set(k.id, w); }
+}
+function planStats() {
+  const R = P().racks;
+  let cells = 0, pos = 0, area = 0;
+  for (const k of R) { cells += k.n; pos += k.n * k.levels; const r = rr(k); area += (r[2] - r[0]) * (r[3] - r[1]) / 1e6; }
+  return { racks: R.length, cells, positions: pos, footprint_m2: +area.toFixed(1), conflicts: bad.size };
+}
+
+// ================= 平面：绘制 =================
+const svg = $("plan"), vp = $("vp");
+const L = { bld: $("Lbld"), ghost: $("Lghost"), zones: $("Lzones"), racks: $("Lracks"), fixed: $("Lfixed"), anno: $("Lanno"), ovl: $("Lovl") };
+let view = { s: 0.01, tx: 0, ty: 0 };
+let tool = "select";
+let hoverW = null;
+let tpl = { n: 3, axis: "y", cell: 2000, depth: 1950, levels: 2, face: "E" };
+
+function el(tag, attrs, parent) {
+  const n = document.createElementNS(NS, tag);
+  for (const k in attrs) if (attrs[k] != null) n.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(n);
+  return n;
+}
+const rectW = (r, attrs, parent) => el("rect", { x: r[0], y: H - r[3], width: r[2] - r[0], height: r[3] - r[1], ...attrs }, parent);
+function textW(t, x, y, size, attrs, parent) {
+  const n = el("text", { x, y: H - y, "font-size": size, "text-anchor": "middle", "dominant-baseline": "middle", ...attrs }, parent);
+  n.textContent = t;
+  return n;
+}
+
+function renderBuilding() {
+  const g = L.bld, f = L.fixed;
+  g.replaceChildren(); f.replaceChildren();
+  rectW(B.outline, { fill: "var(--surface)" }, g);
+  rectW(B.shutter.band, { fill: "var(--shutter-band)" }, g);
+  B.cores.forEach((c) => {
+    rectW(c.rect, { fill: "var(--core)", stroke: "var(--core-ink)", "stroke-width": 1, "vector-effect": "non-scaling-stroke" }, g);
+    textW(c.name, (c.rect[0] + c.rect[2]) / 2, (c.rect[1] + c.rect[3]) / 2, 480, { fill: "var(--core-ink)" }, g);
+  });
+  const dash = { stroke: "var(--grid)", "stroke-width": 25, "stroke-dasharray": "600 200 100 200" };
+  B.grid.x.forEach(([v, n]) => { el("line", { x1: v, x2: v, y1: H - 25000, y2: H + 1000, ...dash }, g); textW(n, v, -2000, 600, { fill: "var(--muted)" }, g); });
+  B.grid.y.forEach(([v, n]) => { el("line", { x1: -1000, x2: 97000, y1: H - v, y2: H - v, ...dash }, g); textW(n, -2000, v, 600, { fill: "var(--muted)" }, g); });
+  rectW(B.outline, { fill: "none", stroke: "var(--ink)", "stroke-width": 2, "vector-effect": "non-scaling-stroke" }, g);
+  // 压在货架上面的固定物
+  el("line", { x1: B.shutter.x, x2: B.shutter.x, y1: H - B.shutter.y[0], y2: H - B.shutter.y[1], stroke: "var(--shutter)", "stroke-width": 160 }, f);
+  B.columns.forEach((k) => rectW(k, { fill: "var(--col)" }, f));
+  B.hydrants.forEach((h) => rectW(h, { fill: "var(--shutter)" }, f));
+  B.doors.forEach((o) => {
+    el("circle", { cx: o.x, cy: H - o.y, r: 380, fill: "var(--door)" }, f);
+    textW(o.name, o.x, o.y + (o.y === 0 ? -900 : 900), 420, { fill: "var(--door)" }, f);
+  });
+}
+
+function renderGhost() {
+  L.ghost.replaceChildren();
+  const d = BASE[S.set.ghost];
+  if (d) d.runs.forEach((r) => rectW(r.rect, { class: "ghostrun" }, L.ghost));
+}
+
+function drawRack(k, parent) {
+  const r = rr(k), w = r[2] - r[0], h = r[3] - r[1];
+  const cls = "rack" + (sel.has(k.id) ? " sel" : "") + (bad.has(k.id) ? " bad" : "");
+  const g = el("g", { "data-id": k.id, class: cls, transform: `translate(${r[0]} ${H - r[3]})` }, parent);
+  el("rect", { class: "rk", width: w, height: h }, g);
+  for (let i = 1; i < k.n; i++) {
+    const t = i * k.cell;
+    if (k.axis === "x") el("line", { class: "div", x1: t, x2: t, y1: 0, y2: h }, g);
+    else el("line", { class: "div", x1: 0, x2: w, y1: h - t, y2: h - t }, g);
+  }
+  const m = Math.min(90, w / 4, h / 4);
+  for (const c of k.face) {
+    const ln = { E: [w - m, m, w - m, h - m], W: [m, m, m, h - m], N: [m, m, w - m, m], S: [m, h - m, w - m, h - m] }[c];
+    if (ln) el("line", { class: "face", x1: ln[0], y1: ln[1], x2: ln[2], y2: ln[3] }, g);
+  }
+  if (k.levels !== 2) { const t = el("text", { x: w / 2, y: h / 2, "font-size": 520, "text-anchor": "middle", "dominant-baseline": "middle" }, g); t.textContent = k.levels + "层"; }
+}
+
+function drawDim(a, b, label, cls, parent, px) {
+  const g = el("g", { class: cls }, parent);
+  const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len, ny = dx / len, t = 5 * px;
+  el("line", { x1: a[0], y1: H - a[1], x2: b[0], y2: H - b[1] }, g);
+  for (const p of [a, b]) el("line", { x1: p[0] + nx * t, y1: H - (p[1] + ny * t), x2: p[0] - nx * t, y2: H - (p[1] - ny * t) }, g);
+  const fs = 12 * px, off = 9 * px;
+  const tx = (a[0] + b[0]) / 2 + nx * off, ty = (a[1] + b[1]) / 2 + ny * off;
+  const n = el("text", { x: tx, y: H - ty, "font-size": fs, "text-anchor": "middle", "dominant-baseline": "middle", class: "halo", "stroke-width": 3 * px }, g);
+  n.textContent = label;
+  return g;
+}
+
+let rq = 0;
+function requestRender() { if (!rq) rq = requestAnimationFrame(() => { rq = 0; renderPlan(); }); }
+function renderPlan() {
+  if (!B) return;
+  computeConflicts();
+  const px = 1 / view.s;
+  L.zones.replaceChildren();
+  for (const z of P().zones) {
+    const g = el("g", { "data-id": z.id, class: "zone " + z.kind + (sel.has(z.id) ? " sel" : "") }, L.zones);
+    rectW(z.r, { class: "zr" }, g);
+    const w = z.r[2] - z.r[0], h = z.r[3] - z.r[1];
+    const fs = Math.max(200, Math.min(480, w / Math.max(2, z.name.length) * 0.9, h * 0.5));
+    textW(z.name, (z.r[0] + z.r[2]) / 2, (z.r[1] + z.r[3]) / 2, fs, {}, g);
+  }
+  L.racks.replaceChildren();
+  for (const k of P().racks) drawRack(k, L.racks);
+  L.anno.replaceChildren();
+  for (const d of P().dims) {
+    const g = drawDim(d.a, d.b, m2(Math.hypot(d.b[0] - d.a[0], d.b[1] - d.a[1])) + " m", "dim" + (sel.has(d.id) ? " sel" : ""), L.anno, px);
+    g.setAttribute("data-id", d.id);
+    el("line", { class: "dimhit", x1: d.a[0], y1: H - d.a[1], x2: d.b[0], y2: H - d.b[1] }, g);
+  }
+  for (const p of P().pins) {
+    const g = el("g", { "data-id": p.id, class: "pin" + (sel.has(p.id) ? " sel" : "") }, L.anno);
+    el("circle", { cx: p.x, cy: H - p.y, r: Math.max(300, 6 * px) }, g);
+    const t = el("text", { x: p.x + Math.max(450, 9 * px), y: H - p.y, "font-size": Math.max(550, 13 * px), "dominant-baseline": "middle", "stroke-width": Math.max(120, 3 * px) }, g);
+    t.textContent = p.text;
+  }
+  renderOverlay();
+  renderProps();
+  renderStats();
+}
+
+function rackRectAt(w) {
+  const len = tpl.n * tpl.cell;
+  const [W, Hh] = tpl.axis === "x" ? [len, tpl.depth] : [tpl.depth, len];
+  const r = [w.x - W / 2, w.y - Hh / 2, w.x + W / 2, w.y + Hh / 2];
+  const [dx, dy] = snapRack(r, new Set(), false);
+  return [r[0] + dx, r[1] + dy, r[2] + dx, r[3] + dy];
+}
+
+function gapsFor(r, selfId) {
+  const obs = [];
+  for (const k of P().racks) if (k.id !== selfId) obs.push(rr(k));
+  obs.push(...B.columns, ...B.hydrants, ...B.cores.map((c) => c.rect), B.shutter.band);
+  for (const z of P().zones) if (z.kind === "zone") obs.push(z.r);
+  const [X0, Y0, X1, Y1] = B.outline, F = 1e6;
+  obs.push([X0 - F, Y0 - F, X0, Y1 + F], [X1, Y0 - F, X1 + F, Y1 + F], [X0 - F, Y0 - F, X1 + F, Y0], [X0 - F, Y1, X1 + F, Y1 + F]);
+  const out = [];
+  const dirs = [
+    { d: "W", ok: (o) => o[2] <= r[0] + 1, g: (o) => r[0] - o[2], span: 1, from: (o) => r[0], to: (o) => o[2] },
+    { d: "E", ok: (o) => o[0] >= r[2] - 1, g: (o) => o[0] - r[2], span: 1, from: (o) => r[2], to: (o) => o[0] },
+    { d: "S", ok: (o) => o[3] <= r[1] + 1, g: (o) => r[1] - o[3], span: 0, from: (o) => r[1], to: (o) => o[3] },
+    { d: "N", ok: (o) => o[1] >= r[3] - 1, g: (o) => o[1] - r[3], span: 0, from: (o) => r[3], to: (o) => o[1] },
+  ];
+  for (const dd of dirs) {
+    let best = null;
+    for (const o of obs) {
+      // 垂直方向要有重叠
+      const lo = dd.span ? Math.max(o[1], r[1]) : Math.max(o[0], r[0]);
+      const hi = dd.span ? Math.min(o[3], r[3]) : Math.min(o[2], r[2]);
+      if (hi - lo <= 0 || !dd.ok(o)) continue;
+      const g = dd.g(o);
+      if (g >= 0 && (!best || g < best.g)) best = { g, o, mid: (lo + hi) / 2 };
+    }
+    if (best && best.g > 0 && best.g < 15000) {
+      const a = dd.span ? [dd.from(best.o), best.mid] : [best.mid, dd.from(best.o)];
+      const b = dd.span ? [dd.to(best.o), best.mid] : [best.mid, dd.to(best.o)];
+      out.push({ a, b, g: best.g });
+    }
+  }
+  return out;
+}
+
+function renderOverlay() {
+  const g = L.ovl;
+  g.replaceChildren();
+  if (!B) return;
+  const px = 1 / view.s;
+  const items = selItems();
+  if (items.length === 1 && items[0].type === "rack" && !(drag && drag.mode === "pan")) {
+    for (const gp of gapsFor(rr(items[0].o), items[0].o.id))
+      drawDim(gp.a, gp.b, m2(gp.g), "gap" + (gp.g < 1200 ? " tight" : ""), g, px);
+  }
+  if (items.length === 1 && items[0].type === "zone") {
+    const r = items[0].o.r;
+    for (const [hx, hy, tag] of [[r[0], r[1], "00"], [r[2], r[1], "10"], [r[0], r[3], "01"], [r[2], r[3], "11"]])
+      el("circle", { class: "handle", cx: hx, cy: H - hy, r: 7 * px, "data-handle": tag, "data-zid": items[0].o.id }, g);
+  }
+  if (tool === "rack" && hoverW && !drag) {
+    const r = rackRectAt(hoverW);
+    rectW(r, { class: "preview" + (conflictsOf(r, null).length ? " bad" : "") }, g);
+  }
+  if (drag && drag.mode === "box") {
+    const { w0, w1 } = drag;
+    rectW([Math.min(w0.x, w1.x), Math.min(w0.y, w1.y), Math.max(w0.x, w1.x), Math.max(w0.y, w1.y)], { class: "boxsel" }, g);
+  }
+  if (drag && drag.mode === "zone-new") {
+    const { w0, w1 } = drag;
+    rectW([Math.min(w0.x, w1.x), Math.min(w0.y, w1.y), Math.max(w0.x, w1.x), Math.max(w0.y, w1.y)], { class: "preview" }, g);
+  }
+  if (drag && drag.mode === "dim-new") {
+    const a = [drag.w0.x, drag.w0.y], b = [drag.w1.x, drag.w1.y];
+    drawDim(a, b, m2(Math.hypot(b[0] - a[0], b[1] - a[1])) + " m", "dim", g, px);
+  }
+}
+
+function renderStats() {
+  const s = planStats();
+  const base = BASE[S.base] ? BASE[S.base].stats.positions_total : null;
+  const rows = [["货架段", s.racks], ["格数（每层）", s.cells], ["仓位（格 × 层）", s.positions + (base != null ? `（原 ${base}）` : "")], ["货架占地", s.footprint_m2 + " m²"]];
+  $("pstats").innerHTML = rows.map(([k, v]) => `<span>${k}</span><b>${v}</b>`).join("");
+  const ul = $("pconf");
+  ul.replaceChildren();
+  $("pconfWrap").hidden = !bad.size;
+  for (const [id, why] of bad) {
+    const k = P().racks.find((x) => x.id === id);
+    const li = document.createElement("li");
+    li.textContent = `X ${m2(k.x)} Y ${m2(k.y)}：${why.join("、")}`;
+    li.onclick = () => { sel = new Set([id]); onSelect(); centerOn(rr(k)); requestRender(); };
+    ul.appendChild(li);
+  }
+}
+
+// ================= 平面：视图 =================
+function applyView() { vp.setAttribute("transform", `translate(${view.tx} ${view.ty}) scale(${view.s})`); requestRender(); }
+function fitView() {
+  const b = svg.getBoundingClientRect();
+  if (!b.width || !b.height) return;
+  view.fitted = true;
+  const [x0, y0, x1, y1] = B.outline, m = 2600;
+  view.s = Math.min(b.width / (x1 - x0 + 2 * m), b.height / (y1 - y0 + 2 * m));
+  view.tx = (b.width - (x1 + x0) * view.s) / 2;
+  view.ty = (b.height - (y1 - y0) * view.s) / 2 - (H - y1) * view.s;
+  applyView();
+}
+function centerOn(r) {
+  const b = svg.getBoundingClientRect();
+  view.tx = b.width / 2 - (r[0] + r[2]) / 2 * view.s;
+  view.ty = b.height / 2 - (H - (r[1] + r[3]) / 2) * view.s;
+  applyView();
+}
+const clampS = (s) => Math.max(0.002, Math.min(0.5, s));
+function zoomAt(p, f) {
+  const s = clampS(view.s * f);
+  const wx = (p.cx - view.tx) / view.s, wy = (p.cy - view.ty) / view.s;
+  view.s = s; view.tx = p.cx - wx * s; view.ty = p.cy - wy * s;
+  applyView();
+}
+function local(e) { const b = svg.getBoundingClientRect(); return { cx: e.clientX - b.left, cy: e.clientY - b.top }; }
+const toW = (p) => ({ x: (p.cx - view.tx) / view.s, y: H - (p.cy - view.ty) / view.s });
+const snapS = (v) => Math.round(v / S.set.step) * S.set.step;
+const snapPt = (w) => ({ x: snapS(w.x), y: snapS(w.y) });
+
+// 吸附：对齐其他货架/柱子/区域边线，或与它们隔开通道宽、背靠背缝；否则按步长
+function snapRack(r, excl, gridOnly) {
+  const thr = 10 / view.s;
+  const gaps = [0, (B.rack && B.rack.flue) || 100, S.set.aisle];
+  const xs = [], ys = [];
+  if (!gridOnly) {
+    for (const k of P().racks) if (!excl.has(k.id)) { const o = rr(k); xs.push(o[0], o[2]); ys.push(o[1], o[3]); }
+    for (const c of B.columns) { xs.push(c[0], c[2]); ys.push(c[1], c[3]); }
+    for (const z of P().zones) if (!excl.has(z.id)) { xs.push(z.r[0], z.r[2]); ys.push(z.r[1], z.r[3]); }
+    const [X0, Y0, X1, Y1] = B.outline;
+    xs.push(X0 + 300, X1 - 300); ys.push(Y0 + 300, Y1 - 300);   // 墙内皮，与原方案一致
+  }
+  const best = (lo, hi, cands) => {
+    let b = null;
+    for (const c of cands) for (const g of gaps) for (const t of g ? [c + g, c - g] : [c]) for (const e of [lo, hi]) {
+      const d = t - e;
+      if (Math.abs(d) < thr && (b === null || Math.abs(d) < Math.abs(b))) b = d;
+    }
+    return b !== null ? b : snapS(lo) - lo;
+  };
+  return [best(r[0], r[2], xs), best(r[1], r[3], ys)];
+}
+
+// ================= 平面：交互 =================
+const ptrs = new Map();
+let drag = null;
+let spaceDown = false;
+const dist = (a, b) => Math.hypot(a.cx - b.cx, a.cy - b.cy);
+const mid = (a, b) => ({ cx: (a.cx + b.cx) / 2, cy: (a.cy + b.cy) / 2 });
+
+function posOf(it) {
+  const o = it.o;
+  return it.type === "rack" || it.type === "pin" ? { x: o.x, y: o.y } : it.type === "zone" ? { r: [...o.r] } : { a: [...o.a], b: [...o.b] };
+}
+
+svg.addEventListener("contextmenu", (e) => e.preventDefault());
+svg.addEventListener("pointerdown", (e) => {
+  if (!B) return;
+  svg.setPointerCapture(e.pointerId);
+  const p = local(e);
+  ptrs.set(e.pointerId, p);
+  if (ptrs.size === 2) {
+    if (drag && drag.mode === "move" && drag.moved) { undo(); redoStack.pop(); updateUndo(); }
+    const [a, b] = [...ptrs.values()];
+    drag = { mode: "pinch", d0: dist(a, b), m0: mid(a, b), v0: { ...view } };
+    return;
+  }
+  if (ptrs.size > 2) return;
+  const w = toW(p);
+  if (e.button === 1 || e.button === 2 || spaceDown) { drag = { mode: "pan", p0: p, v0: { ...view } }; return; }
+  if (e.button !== 0) return;
+  if (tool === "select" || tool === "box") {
+    const h = e.target.closest("[data-handle]");
+    if (h) { const z = findObj(h.dataset.zid); drag = { mode: "resize", z: z.o, corner: h.dataset.handle, p0: p, moved: false }; return; }
+    const t = e.target.closest("[data-id]");
+    if (t) {
+      const id = t.dataset.id;
+      if (e.shiftKey || e.metaKey || e.ctrlKey) {
+        if (sel.has(id)) sel.delete(id); else sel.add(id);
+        onSelect(); requestRender(); drag = { mode: "idle" }; return;
+      }
+      if (!sel.has(id)) { sel = new Set([id]); onSelect(); }
+      const orig = new Map(selItems().map((it) => [it.o.id, posOf(it)]));
+      drag = { mode: "move", primary: findObj(id), p0: p, w0: w, orig, moved: false };
+      requestRender();
+      return;
+    }
+    if (e.shiftKey || tool === "box") { drag = { mode: "box", p0: p, w0: w, w1: w, add: e.shiftKey }; return; }
+    drag = { mode: "pan", p0: p, v0: { ...view }, clickClear: true };
+    return;
+  }
+  if (tool === "rack" || tool === "pin") { drag = { mode: "pan", p0: p, v0: { ...view }, place: w }; return; }
+  if (tool === "zone" || tool === "dim") { const s = snapPt(w); drag = { mode: tool + "-new", p0: p, w0: s, w1: s }; }
+});
+
+svg.addEventListener("pointermove", (e) => {
+  if (!B) return;
+  const p = local(e);
+  if (ptrs.has(e.pointerId)) ptrs.set(e.pointerId, p);
+  const w = toW(p);
+  $("pcoord").textContent = `X ${m2(w.x)} · Y ${m2(w.y)} m`;
+  if (!drag) {
+    hoverW = w;
+    const t = e.target.closest && e.target.closest("[data-id]");
+    $("phud").textContent = t ? describe(findObj(t.dataset.id)) : " ";
+    if (tool === "rack") renderOverlay();
+    return;
+  }
+  const far = drag.p0 && dist(p, drag.p0) > 4;
+  switch (drag.mode) {
+    case "pinch": {
+      if (ptrs.size < 2) return;
+      const [a, b] = [...ptrs.values()];
+      const s = clampS(drag.v0.s * dist(a, b) / drag.d0), m = mid(a, b);
+      const wx = (drag.m0.cx - drag.v0.tx) / drag.v0.s, wy = (drag.m0.cy - drag.v0.ty) / drag.v0.s;
+      view.s = s; view.tx = m.cx - wx * s; view.ty = m.cy - wy * s;
+      applyView();
+      return;
+    }
+    case "pan":
+      if (!drag.moving && !far) return;
+      drag.moving = true;
+      view.tx = drag.v0.tx + p.cx - drag.p0.cx;
+      view.ty = drag.v0.ty + p.cy - drag.p0.cy;
+      applyView();
+      return;
+    case "move": {
+      if (!drag.moved && !far) return;
+      if (!drag.moved) { snap(); drag.moved = true; }
+      let dx = w.x - drag.w0.x, dy = w.y - drag.w0.y;
+      const pr = drag.primary, o0 = drag.orig.get(pr.o.id);
+      if (pr.type === "rack") {
+        const r0 = rr({ ...pr.o, x: o0.x, y: o0.y });
+        const [ax, ay] = snapRack([r0[0] + dx, r0[1] + dy, r0[2] + dx, r0[3] + dy], sel, e.altKey);
+        dx += ax; dy += ay;
+      } else {
+        const ref = pr.type === "zone" ? o0.r : pr.type === "pin" ? [o0.x, o0.y] : o0.a;
+        dx = snapS(ref[0] + dx) - ref[0]; dy = snapS(ref[1] + dy) - ref[1];
+      }
+      for (const it of selItems()) {
+        const o0 = drag.orig.get(it.o.id), o = it.o;
+        if (!o0) continue;
+        if (it.type === "rack" || it.type === "pin") { o.x = o0.x + dx; o.y = o0.y + dy; }
+        else if (it.type === "zone") o.r = [o0.r[0] + dx, o0.r[1] + dy, o0.r[2] + dx, o0.r[3] + dy];
+        else { o.a = [o0.a[0] + dx, o0.a[1] + dy]; o.b = [o0.b[0] + dx, o0.b[1] + dy]; }
+      }
+      requestRender();
+      return;
+    }
+    case "resize": {
+      if (!drag.moved && !far) return;
+      if (!drag.moved) { snap(); drag.moved = true; }
+      const s = snapPt(w), r = drag.z.r;
+      if (drag.corner[0] === "0") r[0] = s.x; else r[2] = s.x;
+      if (drag.corner[1] === "0") r[1] = s.y; else r[3] = s.y;
+      requestRender();
+      return;
+    }
+    case "box": drag.w1 = w; renderOverlay(); return;
+    case "zone-new": drag.w1 = snapPt(w); renderOverlay(); return;
+    case "dim-new": {
+      let s = snapPt(w);
+      if (!e.shiftKey) {  // 接近水平/竖直时自动拉正
+        const dx = Math.abs(s.x - drag.w0.x), dy = Math.abs(s.y - drag.w0.y);
+        if (dy < dx * 0.15) s.y = drag.w0.y; else if (dx < dy * 0.15) s.x = drag.w0.x;
+      }
+      drag.w1 = s; renderOverlay(); return;
+    }
+  }
+});
+
+function onUp(e) {
+  ptrs.delete(e.pointerId);
+  if (!drag) return;
+  const d = drag;
+  if (d.mode === "pinch" || d.mode === "idle") { drag = ptrs.size ? { mode: "idle" } : null; return; }
+  drag = null;
+  switch (d.mode) {
+    case "pan":
+      if (!d.moving) {
+        if (d.clickClear) { sel.clear(); onSelect(); }
+        if (d.place && tool === "rack") placeRack(d.place);
+        if (d.place && tool === "pin") placePin(d.place);
+      }
+      requestRender();
+      break;
+    case "move": if (d.moved) changed(); else requestRender(); break;
+    case "resize":
+      if (d.moved) { const r = d.z.r; d.z.r = [Math.min(r[0], r[2]), Math.min(r[1], r[3]), Math.max(r[0], r[2]), Math.max(r[1], r[3])]; changed(); }
+      break;
+    case "box": {
+      const b = [Math.min(d.w0.x, d.w1.x), Math.min(d.w0.y, d.w1.y), Math.max(d.w0.x, d.w1.x), Math.max(d.w0.y, d.w1.y)];
+      if (!d.add) sel.clear();
+      // 区域只在整个被框住时才选中，免得框货架时把大区域也带上
+      for (const it of allObjs()) {
+        const r = bbox(it);
+        const hit = it.type === "zone" ? r[0] >= b[0] && r[1] >= b[1] && r[2] <= b[2] && r[3] <= b[3]
+          : r[0] <= b[2] && r[2] >= b[0] && r[1] <= b[3] && r[3] >= b[1];
+        if (hit) sel.add(it.o.id);
+      }
+      onSelect(); requestRender();
+      break;
+    }
+    case "zone-new": {
+      const r = [Math.min(d.w0.x, d.w1.x), Math.min(d.w0.y, d.w1.y), Math.max(d.w0.x, d.w1.x), Math.max(d.w0.y, d.w1.y)];
+      if (r[2] - r[0] < 300 || r[3] - r[1] < 300) { renderOverlay(); break; }
+      const name = prompt("区域名称", "新区域");
+      if (name === null) { renderOverlay(); break; }
+      snap();
+      const z = { id: uid(), kind: "zone", name: name.trim() || "新区域", r };
+      P().zones.push(z);
+      sel = new Set([z.id]); onSelect(); changed();
+      break;
+    }
+    case "dim-new": {
+      if (Math.hypot(d.w1.x - d.w0.x, d.w1.y - d.w0.y) < 100) { renderOverlay(); break; }
+      snap();
+      P().dims.push({ id: uid(), a: [d.w0.x, d.w0.y], b: [d.w1.x, d.w1.y] });
+      changed();
+      break;
+    }
+  }
+}
+svg.addEventListener("pointerup", onUp);
+svg.addEventListener("pointercancel", onUp);
+svg.addEventListener("pointerleave", () => { if (!drag) { hoverW = null; if (tool === "rack") renderOverlay(); } });
+svg.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  const p = local(e);
+  // 触控板双指滑动 = 平移；捏合(ctrl) 或鼠标滚轮 = 缩放
+  const mouseWheel = e.deltaMode !== 0 || (e.deltaX === 0 && Math.abs(e.deltaY) >= 40 && Number.isInteger(e.deltaY));
+  if (e.ctrlKey || mouseWheel) zoomAt(p, Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)));
+  else { view.tx -= e.deltaX; view.ty -= e.deltaY; applyView(); }
+}, { passive: false });
+svg.addEventListener("dblclick", (e) => {
+  const t = e.target.closest("[data-id]");
+  const it = t && findObj(t.dataset.id);
+  if (!it) return;
+  const key = it.type === "pin" ? "text" : it.type === "zone" ? "name" : null;
+  if (!key) return;
+  const v = prompt(it.type === "pin" ? "标注内容" : "区域名称", it.o[key]);
+  if (v === null) return;
+  snap(); it.o[key] = v.trim() || it.o[key]; changed();
+});
+
+function describe(it) {
+  if (!it) return " ";
+  const o = it.o;
+  if (it.type === "rack") {
+    const r = rr(o);
+    const s = `货架 ${o.n} 格 × ${o.levels} 层 · ${o.axis === "x" ? "东西向" : "南北向"} · ${m2(r[2] - r[0])} × ${m2(r[3] - r[1])} m`;
+    return bad.has(o.id) ? s + " · ⚠ " + bad.get(o.id).join("、") : s;
+  }
+  if (it.type === "zone") return `${o.name} · ${m2(o.r[2] - o.r[0])} × ${m2(o.r[3] - o.r[1])} m`;
+  if (it.type === "pin") return "标注：" + o.text;
+  return "尺寸 " + m2(Math.hypot(o.b[0] - o.a[0], o.b[1] - o.a[1])) + " m";
+}
+
+function placeRack(w) {
+  const r = rackRectAt(w);
+  snap();
+  const k = { ...clone(tpl), id: uid(), x: r[0], y: r[1] };
+  P().racks.push(k);
+  sel = new Set([k.id]);
+  changed();
+}
+function placePin(w) {
+  const text = prompt("标注内容（比如：这里想留叉车掉头位）");
+  if (!text || !text.trim()) return;
+  snap();
+  const s = snapPt(w);
+  const p = { id: uid(), x: s.x, y: s.y, text: text.trim() };
+  P().pins.push(p);
+  sel = new Set([p.id]);
+  changed();
+}
+
+// ---------- 编辑操作 ----------
+function rotFace(f) { return normFace([...f].map((c) => ({ E: "N", N: "W", W: "S", S: "E" })[c]).join("")); }
+function rotateSel() {
+  if (tool === "rack" && !sel.size) { tpl.axis = tpl.axis === "x" ? "y" : "x"; tpl.face = rotFace(tpl.face); panelSig = ""; renderOverlay(); renderProps(); return; }
+  const items = selItems();
+  if (!items.length) return;
+  snap();
+  const bb = unionBox(items), cx = snapS((bb[0] + bb[2]) / 2), cy = snapS((bb[1] + bb[3]) / 2);
+  const rot = ([x, y]) => [cx - (y - cy), cy + (x - cx)];
+  const rotR = (r) => { const a = rot([r[0], r[1]]), b = rot([r[2], r[3]]); return [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1])]; };
+  for (const it of items) {
+    const o = it.o;
+    if (it.type === "rack") { const r = rotR(rr(o)); o.axis = o.axis === "x" ? "y" : "x"; o.x = r[0]; o.y = r[1]; o.face = rotFace(o.face); }
+    else if (it.type === "zone") o.r = rotR(o.r);
+    else if (it.type === "pin") [o.x, o.y] = rot([o.x, o.y]);
+    else { o.a = rot(o.a); o.b = rot(o.b); }
+  }
+  panelSig = "";
+  changed();
+}
+function defaultOffset(items) {
+  const bb = unionBox(items), w = bb[2] - bb[0], h = bb[3] - bb[1];
+  return w <= h ? [w + S.set.aisle, 0] : [0, h + S.set.aisle];
+}
+function copyItems(items, dx, dy) {
+  const ids = [];
+  for (const it of items) {
+    const o = clone(it.o);
+    o.id = uid();
+    if (it.type === "rack" || it.type === "pin") { o.x += dx; o.y += dy; }
+    else if (it.type === "zone") o.r = [o.r[0] + dx, o.r[1] + dy, o.r[2] + dx, o.r[3] + dy];
+    else { o.a = [o.a[0] + dx, o.a[1] + dy]; o.b = [o.b[0] + dx, o.b[1] + dy]; }
+    P()[{ rack: "racks", zone: "zones", pin: "pins", dim: "dims" }[it.type]].push(o);
+    ids.push(o.id);
+  }
+  return ids;
+}
+function dupSel() {
+  const items = selItems();
+  if (!items.length) return;
+  snap();
+  const [dx, dy] = defaultOffset(items);
+  sel = new Set(copyItems(items, dx, dy));
+  changed();
+}
+function arraySel(n, dx, dy) {
+  const items = selItems();
+  if (!items.length || n < 1) return;
+  snap();
+  const all = [];
+  for (let i = 1; i <= n; i++) all.push(...copyItems(items, dx * i, dy * i));
+  sel = new Set(all);
+  changed();
+}
+function deleteSel() {
+  if (!sel.size) return;
+  snap();
+  const p = P();
+  for (const k of ["racks", "zones", "pins", "dims"]) p[k] = p[k].filter((o) => !sel.has(o.id));
+  sel.clear();
+  changed();
+}
+function nudge(dx, dy) {
+  const items = selItems();
+  if (!items.length) return;
+  snap();
+  for (const it of items) {
+    const o = it.o;
+    if (it.type === "rack" || it.type === "pin") { o.x += dx; o.y += dy; }
+    else if (it.type === "zone") o.r = [o.r[0] + dx, o.r[1] + dy, o.r[2] + dx, o.r[3] + dy];
+    else { o.a = [o.a[0] + dx, o.a[1] + dy]; o.b = [o.b[0] + dx, o.b[1] + dy]; }
+  }
+  changed();
+}
+function cellsDelta(d) {
+  const racks = selItems().filter((it) => it.type === "rack");
+  if (!racks.length) return;
+  snap();
+  racks.forEach((it) => { it.o.n = Math.max(1, it.o.n + d); });
+  changed();
+}
+function onSelect() {
+  const items = selItems();
+  if (items.length === 1 && items[0].type === "rack") { const { n, axis, cell, depth, levels, face } = items[0].o; tpl = { n, axis, cell, depth, levels, face }; }
+}
+
+// ---------- 属性面板 ----------
+const FACE_OPTS = { y: [["E", "朝东取货"], ["W", "朝西取货"], ["EW", "东西两面"]], x: [["N", "朝北取货"], ["S", "朝南取货"], ["NS", "南北两面"]] };
+const FIELDS = {
+  rack: [
+    { label: "X 起点", type: "num", get: (o) => o.x, set: (o, v) => (o.x = v) },
+    { label: "Y 起点", type: "num", get: (o) => o.y, set: (o, v) => (o.y = v) },
+    { label: "格数", type: "num", multi: true, min: 1, get: (o) => o.n, set: (o, v) => (o.n = Math.max(1, Math.round(v))) },
+    { label: "格长 mm", type: "num", multi: true, min: 100, get: (o) => o.cell, set: (o, v) => (o.cell = v) },
+    { label: "进深 mm", type: "num", multi: true, min: 100, get: (o) => o.depth, set: (o, v) => (o.depth = v) },
+    { label: "层数", type: "num", multi: true, min: 1, get: (o) => o.levels, set: (o, v) => (o.levels = Math.max(1, Math.round(v))) },
+    { label: "方向", type: "sel", multi: true, opts: () => [["y", "南北向（沿 Y）"], ["x", "东西向（沿 X）"]], get: (o) => o.axis,
+      set: (o, v) => { if (o.axis !== v) { o.axis = v; o.face = { E: "S", W: "N", EW: "NS", N: "W", S: "E", NS: "EW" }[o.face] || o.face; } } },
+    { label: "取货面", type: "sel", multi: true, opts: (objs) => FACE_OPTS[objs[0].axis], sameAxis: true, get: (o) => o.face, set: (o, v) => (o.face = v) },
+  ],
+  zone: [
+    { label: "名称", type: "text", multi: true, get: (o) => o.name, set: (o, v) => (o.name = v) },
+    { label: "类型", type: "sel", multi: true, opts: () => [["zone", "功能区"], ["aisle", "通道"]], get: (o) => o.kind, set: (o, v) => (o.kind = v) },
+    { label: "X 起点", type: "num", get: (o) => o.r[0], set: (o, v) => { const w = o.r[2] - o.r[0]; o.r[0] = v; o.r[2] = v + w; } },
+    { label: "Y 起点", type: "num", get: (o) => o.r[1], set: (o, v) => { const h = o.r[3] - o.r[1]; o.r[1] = v; o.r[3] = v + h; } },
+    { label: "宽 X mm", type: "num", min: 100, get: (o) => o.r[2] - o.r[0], set: (o, v) => (o.r[2] = o.r[0] + v) },
+    { label: "深 Y mm", type: "num", min: 100, get: (o) => o.r[3] - o.r[1], set: (o, v) => (o.r[3] = o.r[1] + v) },
+  ],
+  pin: [{ label: "内容", type: "text", get: (o) => o.text, set: (o, v) => (o.text = v) }],
+  dim: [],
+};
+let panelSig = "", propInputs = [];
+function renderProps() {
+  const items = selItems();
+  const editTpl = tool === "rack" && !items.length;
+  const sig = editTpl ? "tpl:" + tpl.axis : items.map((it) => it.o.id + (it.o.axis || "")).join(",");
+  if (sig !== panelSig) { panelSig = sig; buildProps(items, editTpl); }
+  for (const pi of propInputs) {
+    if (document.activeElement === pi.input) continue;
+    const vals = pi.objs.map(pi.def.get);
+    pi.input.value = vals.every((v) => v === vals[0]) ? vals[0] : "";
+  }
+}
+function buildProps(items, editTpl) {
+  const box = $("props");
+  box.replaceChildren();
+  propInputs = [];
+  let objs, type;
+  if (editTpl) { objs = [tpl]; type = "rack"; $("propsTitle").textContent = "新货架参数（点图放置）"; }
+  else if (!items.length) {
+    $("propsTitle").textContent = "选中";
+    box.innerHTML = `<p class="muted">点货架、区域查看和修改尺寸；Shift+点 多选，Shift+拖 框选。拖动时会显示到四周的净距。</p>`;
+    return;
+  } else {
+    const types = new Set(items.map((it) => it.type));
+    type = types.size === 1 ? items[0].type : null;
+    objs = items.map((it) => it.o);
+    $("propsTitle").textContent = items.length === 1 ? TYPE_NAME[type] : `已选 ${items.length} 个`;
+  }
+  if (type) {
+    const fields = document.createElement("div");
+    fields.className = "fields";
+    for (const def of FIELDS[type]) {
+      if (objs.length > 1 && !def.multi) continue;
+      if (editTpl && /起点/.test(def.label)) continue;
+      if (def.sameAxis && new Set(objs.map((o) => o.axis)).size > 1) continue;
+      const lab = document.createElement("label");
+      lab.textContent = def.label;
+      let input;
+      if (def.type === "sel") {
+        input = document.createElement("select");
+        if (objs.length > 1) input.append(new Option("（不同）", ""));
+        for (const [v, t] of def.opts(objs)) input.append(new Option(t, v));
+      } else {
+        input = document.createElement("input");
+        if (def.type === "num") { input.type = "number"; input.step = type === "rack" && /格数|层数/.test(def.label) ? 1 : 50; input.inputMode = "numeric"; }
+      }
+      input.addEventListener("change", () => {
+        let v = input.value;
+        if (v === "") return;
+        if (def.type === "num") { v = Number(v); if (!isFinite(v) || (def.min && v < def.min)) return; }
+        if (editTpl) { def.set(tpl, v); panelSig = ""; renderProps(); renderOverlay(); return; }
+        snap();
+        objs.forEach((o) => def.set(o, v));
+        if (type === "rack") onSelect();
+        changed();
+      });
+      fields.append(lab, input);
+      propInputs.push({ input, def, objs });
+    }
+    box.append(fields);
+  }
+  if (type === "dim") box.insertAdjacentHTML("beforeend", `<p class="muted">长度 ${m2(Math.hypot(objs[0].b[0] - objs[0].a[0], objs[0].b[1] - objs[0].a[1]))} m</p>`);
+  const row = document.createElement("div");
+  row.className = "row";
+  const btn = (t, f, title) => { const b = document.createElement("button"); b.className = "btn sm"; b.textContent = t; if (title) b.title = title; b.onclick = f; row.append(b); };
+  btn("旋转 90°", rotateSel, "R");
+  if (!editTpl) {
+    if (type === "rack") { btn("− 格", () => cellsDelta(-1), "-"); btn("+ 格", () => cellsDelta(1), "+"); }
+    btn("复制", dupSel, "Ctrl/⌘+D");
+    btn("删除", deleteSel, "Delete");
+  }
+  box.append(row);
+  if (!editTpl) {
+    const [dx, dy] = defaultOffset(items);
+    const arr = document.createElement("div");
+    arr.innerHTML = `<p class="muted" style="margin-top:12px">阵列复制：按间距连续复制几份</p>
+      <div class="fields"><label>份数</label><input type="number" id="arrN" value="1" min="1" step="1">
+      <label>X 间距</label><input type="number" id="arrX" value="${dx}" step="50">
+      <label>Y 间距</label><input type="number" id="arrY" value="${dy}" step="50"></div>
+      <div class="row"><button class="btn sm" id="arrGo">阵列</button></div>`;
+    box.append(arr);
+    $("arrGo").onclick = () => arraySel(Math.round(+$("arrN").value), +$("arrX").value || 0, +$("arrY").value || 0);
+  }
+}
+
+function setTool(t) {
+  tool = t;
+  document.querySelectorAll("#ptools .tool").forEach((b) => b.setAttribute("aria-pressed", b.dataset.tool === t));
+  svg.setAttribute("class", "t-" + t);
+  svg.style.cursor = { select: "default", box: "crosshair", rack: "copy", zone: "crosshair", pin: "cell", dim: "crosshair" }[t];
+  $("phint").textContent = {
+    select: "拖动摆放 · Shift+点 多选 · 空白处拖动平移 · 滚轮/双指缩放 · R 旋转 · Del 删除",
+    box: "拖出方框选中多个（区域要整个框住）",
+    rack: "点一下放一段货架，参数在右边改，R 换方向 · Esc 退出",
+    zone: "拖出一个矩形，作为功能区或通道",
+    pin: "点一下加一条文字说明",
+    dim: "拖动量距离，会留在图上（接近水平/竖直时自动拉正，Shift 取消）",
+  }[t];
+  panelSig = "";
+  renderOverlay();
+  renderProps();
+}
+
+// ================= 货架结构（3D 积木）=================
+// 网格：xs 沿排方向，ys 高度，zs 进深（z=0 为背面，最大值为取货正面）
+// 构件键：e{x|y|z}:i,j,k = 节点 (i,j,k) 出发沿该方向的一段杆；f{x|y|z}:i,j,k = 法向为该轴、最小角在 (i,j,k) 的面
+const AX = ["x", "y", "z"];
+const parseKey = (key) => { const [t, s] = key.split(":"); return { t, idx: s.split(",").map(Number) }; };
+const makeKey = (t, idx) => `${t}:${idx.join(",")}`;
+const spansAxis = (t, a) => t === "e" + AX[a] || (t[0] === "f" && t[1] !== AX[a]);
+function validKey(t, idx, n) {
+  for (let a = 0; a < 3; a++) {
+    const lim = spansAxis(t, a) ? n[a] - 2 : n[a] - 1;
+    if (!(idx[a] >= 0 && idx[a] <= lim)) return false;
+  }
+  return true;
+}
+const dims = (f) => [f.xs.length, f.ys.length, f.zs.length];
+function pruneFrame(f) {
+  const n = dims(f);
+  for (const key of Object.keys(f.m)) { const { t, idx } = parseKey(key); if (!validKey(t, idx, n)) delete f.m[key]; }
+}
+
+function presetFrame(type) {
+  const f = { xs: [0, 2000, 4000], ys: [0, 150, 2000, 3800], zs: [0, 1950], m: {}, sec: { ...DEF_SEC } };
+  if (type === "blank") { f.xs = [0, 2000]; f.ys = [0, 1000, 2000, 3000]; f.zs = [0, 1000]; return f; }
+  if (type === "b2b") f.zs = [0, 1950, 2050, 4000];
+  const nx = f.xs.length, ny = f.ys.length, m = f.m;
+  const kLines = type === "b2b" ? [0, 1, 2, 3] : [0, 1];
+  const bands = type === "b2b" ? [0, 2] : [0];
+  for (let i = 0; i < nx; i++) for (const k of kLines) for (let j = 0; j < ny - 1; j++) m[`ey:${i},${j},${k}`] = 1;
+  for (let i = 0; i < nx - 1; i++) for (const k of kLines) for (const j of [1, 2]) m[`ex:${i},${j},${k}`] = 1;   // 前后承货梁
+  for (let i = 0; i < nx; i++) for (const k of bands) {
+    for (const j of [1, 2, 3]) m[`ez:${i},${j},${k}`] = 1;   // 侧片三道横撑
+    m[`fx:${i},1,${k}`] = "/"; m[`fx:${i},2,${k}`] = "\\";   // 侧片两道斜撑
+  }
+  if (type === "b2b") for (let i = 0; i < nx; i++) for (const j of [2, 3]) m[`ez:${i},${j},1`] = 1;   // 背靠背拉结
+  else for (const j of [1, 2]) m[`fz:0,${j},0`] = "X";   // 背面剪刀撑
+  for (let i = 0; i < nx - 1; i++) for (const k of bands) for (const j of [1, 2]) m[`fy:${i},${j},${k}`] = i === 0 && j === 1 ? "r" : "d";   // 只摆一格布卷示意
+  return f;
+}
+
+function rollSlots(f, i, j, k) {   // 一格一层能放的布卷位置（mm）
+  const D = 400, x0 = f.xs[i], x1 = f.xs[i + 1], y = f.ys[j], z0 = f.zs[k], z1 = f.zs[k + 1];
+  const top = j + 1 < f.ys.length ? f.ys[j + 1] - 150 : y + 1200;
+  const nxr = Math.max(0, Math.floor((x1 - x0 - 50) / D));
+  const layers = Math.max(0, Math.min(4, Math.floor((top - y - 50) / D)));
+  const out = [];
+  for (let l = 0; l < layers; l++) for (let a = 0; a < nxr; a++)
+    out.push({ x: x0 + 25 + D / 2 + a * D, y: y + 25 + D / 2 + l * D, z: (z0 + z1) / 2, len: Math.min(z1 - z0 - 100, 1600), D });
+  return out;
+}
+
+const BOM_NAMES = { post: "立柱", beamX: "承货梁（沿排）", beamZ: "横撑（进深向）", brace: "斜撑 / 剪刀撑", joist: "中间托梁（每层 2 根）" };
+function frameBOM() {
+  const f = S.frame, m = f.m, [nx, ny, nz] = dims(f);
+  const rows = Object.fromEntries(Object.keys(BOM_NAMES).map((k) => [k, new Map()]));
+  const add = (kind, len, c = 1) => { len = Math.round(len); rows[kind].set(len, (rows[kind].get(len) || 0) + c); };
+  for (let i = 0; i < nx; i++) for (let k = 0; k < nz; k++) {   // 连续的立柱段合并成一根
+    let s = -1;
+    for (let j = 0; j < ny; j++) {
+      const on = j < ny - 1 && m[`ey:${i},${j},${k}`];
+      if (on && s < 0) s = j;
+      if (!on && s >= 0) { add("post", f.ys[j] - f.ys[s]); s = -1; }
+    }
+  }
+  let rolls = 0;
+  for (const [key, v] of Object.entries(m)) {
+    const { t, idx: [i, j, k] } = parseKey(key);
+    if (t === "ex") add("beamX", f.xs[i + 1] - f.xs[i]);
+    else if (t === "ez") add("beamZ", f.zs[k + 1] - f.zs[k]);
+    else if (t === "fx") add("brace", Math.hypot(f.ys[j + 1] - f.ys[j], f.zs[k + 1] - f.zs[k]), v === "X" ? 2 : 1);
+    else if (t === "fz") add("brace", Math.hypot(f.xs[i + 1] - f.xs[i], f.ys[j + 1] - f.ys[j]), v === "X" ? 2 : 1);
+    else if (t === "fy") { add("joist", f.xs[i + 1] - f.xs[i], 2); if (v === "r") rolls += rollSlots(f, i, j, k).length; }
+  }
+  let kg = 0;
+  const items = Object.entries(rows).filter(([, mp]) => mp.size).map(([kind, mp]) => {
+    const pieces = [...mp].sort((a, b) => b[0] - a[0]);
+    const count = pieces.reduce((s, [, c]) => s + c, 0);
+    const total = pieces.reduce((s, [l, c]) => s + l * c, 0) / 1000;
+    const spec = f.sec[kind];
+    const w = +(total * SECTIONS[spec].kg).toFixed(1);
+    kg += w;
+    return { kind, name: BOM_NAMES[kind], spec, pieces, count, total_m: +total.toFixed(2), kg: w };
+  });
+  return { items, kg: +kg.toFixed(1), rolls };
+}
+
+let F = null;
+let ftool = "post";
+let lastHover = null;
+async function initFrame() {
+  if (F) return;
+  try {
+    const THREE = await import("three");
+    const { OrbitControls } = await import("three/addons/controls/OrbitControls.js");
+    const host = $("stage3d");
+    const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    host.prepend(renderer.domElement);
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.05, 200);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.maxPolarAngle = Math.PI * 0.495;
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8f8a, 1.5));
+    const sun = new THREE.DirectionalLight(0xffffff, 1.5);
+    sun.position.set(4, 9, 7);
+    scene.add(sun);
+    const groups = {};
+    for (const n of ["floor", "m", "pick", "ghost", "lab"]) { groups[n] = new THREE.Group(); scene.add(groups[n]); }
+    const std = (c, extra) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.6, metalness: 0.2, ...extra });
+    const mat = {
+      post: std(0x3b6fa8), beamX: std(0xe08a2e), beamZ: std(0x5f97cf), brace: std(0x7f8f86), joist: std(0x9a9c98),
+      plate: std(0x9a9c98, { transparent: true, opacity: 0.12, depthWrite: false }),
+      rolls: [0x6b8fb3, 0xb36b6b, 0xc9b26b, 0x7aa37a, 0x8f7ab3, 0xd0d0c8, 0x5c6b7a, 0xb38f6b].map((c) => std(c, { metalness: 0, roughness: 0.9 })),
+      add: new THREE.MeshBasicMaterial({ color: 0x22c55e, transparent: true, opacity: 0.6, depthWrite: false }),
+      del: new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.7, depthWrite: false }),
+      pick: new THREE.MeshBasicMaterial({ visible: false }),
+    };
+    F = { THREE, renderer, scene, camera, controls, g: groups, mat, ray: new THREE.Raycaster(), box: new THREE.BoxGeometry(1, 1, 1), cyl: new THREE.CylinderGeometry(1, 1, 1, 18), UP: new THREE.Vector3(0, 1, 0) };
+    const resize = () => {
+      const w = host.clientWidth, h = host.clientHeight;
+      if (!w || !h) return;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    };
+    new ResizeObserver(resize).observe(host);
+    resize();
+    bindFrameEvents(renderer.domElement);
+    $("fmsg").remove();
+    buildFrame();
+    fitFrame();
+    if (tab === "frame") renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
+  } catch (e) {
+    F = null;
+    $("fmsg").textContent = "3D 加载失败（需要联网加载 three.js）：" + e.message;
+  }
+}
+
+function clearGroup(g) {
+  for (const c of g.children) if (c.isSprite) { c.material.map.dispose(); c.material.dispose(); }
+  g.clear();
+}
+function V(i, j, k) { const f = S.frame; return new F.THREE.Vector3(f.xs[i] / 1000, f.ys[j] / 1000, f.zs[k] / 1000); }
+function bar(a, b, t, material, t2) {
+  const d = b.clone().sub(a);
+  const m = new F.THREE.Mesh(F.box, material);
+  m.scale.set(t, d.length(), t2 || t);
+  m.position.copy(a).addScaledVector(d, 0.5);
+  m.quaternion.setFromUnitVectors(F.UP, d.normalize());
+  return m;
+}
+const secW = (kind) => SECTIONS[S.frame.sec[kind]].w / 1000;
+function memberMeshes(key, val, override, grow = 1) {
+  const { t, idx: [i, j, k] } = parseKey(key);
+  const f = S.frame, M = F.mat, out = [];
+  const T = (kind) => secW(kind) * grow * (override ? 1.6 : 1);
+  if (t === "ex") out.push(bar(V(i, j, k), V(i + 1, j, k), T("beamX"), override || M.beamX));
+  else if (t === "ey") out.push(bar(V(i, j, k), V(i, j + 1, k), T("post"), override || M.post));
+  else if (t === "ez") out.push(bar(V(i, j, k), V(i, j, k + 1), T("beamZ"), override || M.beamZ));
+  else if (t === "fx" || t === "fz") {
+    const [a, b, c, d] = t === "fx" ? [V(i, j, k), V(i, j + 1, k + 1), V(i, j, k + 1), V(i, j + 1, k)] : [V(i, j, k), V(i + 1, j + 1, k), V(i + 1, j, k), V(i, j + 1, k)];
+    if (val === "/" || val === "X") out.push(bar(a, b, T("brace"), override || M.brace));
+    if (val === "\\" || val === "X") out.push(bar(c, d, T("brace"), override || M.brace));
+  } else if (t === "fy") {
+    const y = f.ys[j] / 1000, x0 = f.xs[i] / 1000, x1 = f.xs[i + 1] / 1000, z0 = f.zs[k] / 1000, z1 = f.zs[k + 1] / 1000;
+    for (const s of [1 / 3, 2 / 3]) {
+      const z = z0 + (z1 - z0) * s;
+      out.push(bar(new F.THREE.Vector3(x0, y, z), new F.THREE.Vector3(x1, y, z), T("joist"), override || M.joist, 0.06 * grow));
+    }
+    const pl = new F.THREE.Mesh(F.box, override || M.plate);
+    pl.scale.set(x1 - x0, 0.008, z1 - z0);
+    pl.position.set((x0 + x1) / 2, y + 0.02, (z0 + z1) / 2);
+    out.push(pl);
+    if (val === "r") rollSlots(f, i, j, k).forEach((r, n) => {
+      const c = new F.THREE.Mesh(F.cyl, override || M.rolls[(i * 3 + j * 5 + k * 7 + n) % M.rolls.length]);
+      c.scale.set(r.D / 2000 * 0.96, r.len / 1000, r.D / 2000 * 0.96);
+      c.rotation.x = Math.PI / 2;
+      c.position.set(r.x / 1000, r.y / 1000, r.z / 1000);
+      out.push(c);
+    });
+  }
+  return out;
+}
+
+function label(text, x, y, z, color) {
+  const c = document.createElement("canvas");
+  c.width = 256; c.height = 72;
+  const g = c.getContext("2d");
+  g.font = "600 38px -apple-system, 'PingFang SC', sans-serif";
+  g.textAlign = "center"; g.textBaseline = "middle";
+  const w = Math.min(250, g.measureText(text).width + 24);
+  g.fillStyle = cssVar("--surface"); g.globalAlpha = 0.85;
+  g.beginPath(); g.roundRect((256 - w) / 2, 8, w, 56, 12); g.fill();
+  g.globalAlpha = 1; g.fillStyle = color || cssVar("--ink");
+  g.fillText(text, 128, 37);
+  const tex = new F.THREE.CanvasTexture(c);
+  tex.colorSpace = F.THREE.SRGBColorSpace;
+  const s = new F.THREE.Sprite(new F.THREE.SpriteMaterial({ map: tex, depthTest: false }));
+  s.scale.set(0.64, 0.18, 1);
+  s.position.set(x, y, z);
+  s.renderOrder = 10;
+  return s;
+}
+
+function buildFrame() {
+  if (!F) return;
+  const THREE = F.THREE, f = S.frame, g = F.g;
+  F.scene.background = new THREE.Color(cssVar("--scene"));
+  clearGroup(g.m); clearGroup(g.lab); clearGroup(g.floor);
+  for (const [key, v] of Object.entries(f.m)) for (const mesh of memberMeshes(key, v)) { mesh.userData.key = key; g.m.add(mesh); }
+  const X0 = f.xs[0] / 1000, X1 = f.xs.at(-1) / 1000, Z0 = f.zs[0] / 1000, Z1 = f.zs.at(-1) / 1000;
+  const grid = new THREE.GridHelper(30, 60, new THREE.Color(cssVar("--muted")), new THREE.Color(cssVar("--line")));
+  grid.position.set((X0 + X1) / 2, -0.001, (Z0 + Z1) / 2);
+  g.floor.add(grid);
+  for (let i = 0; i < f.xs.length - 1; i++) g.lab.add(label(String(f.xs[i + 1] - f.xs[i]), (f.xs[i] + f.xs[i + 1]) / 2000, 0.05, Z1 + 0.45));
+  for (let j = 0; j < f.ys.length; j++) g.lab.add(label("↑" + f.ys[j], X0 - 0.5, f.ys[j] / 1000, Z1));
+  for (let k = 0; k < f.zs.length - 1; k++) g.lab.add(label(String(f.zs[k + 1] - f.zs[k]), X1 + 0.5, 0.05, (f.zs[k] + f.zs[k + 1]) / 2000));
+  g.lab.add(label("正面 · 取货", (X0 + X1) / 2, 0.05, Z1 + 0.95, cssVar("--accent")));
+  buildPicks();
+  showGhost(null);
+}
+
+function buildPicks() {
+  if (!F) return;
+  const g = F.g.pick, f = S.frame, [nx, ny, nz] = dims(f);
+  clearGroup(g);
+  const addBar = (key, a, b) => {
+    const d = b.clone().sub(a);
+    const m = bar(a.clone().addScaledVector(d, 0.12), b.clone().addScaledVector(d, -0.12), 0.16, F.mat.pick);
+    m.userData.key = key; g.add(m);
+  };
+  const addFace = (key, n, i, j, k) => {
+    const a = V(i, j, k), b = V(i + (n !== "x"), j + (n !== "y"), k + (n !== "z"));
+    const m = new F.THREE.Mesh(F.box, F.mat.pick);
+    const sz = b.clone().sub(a).multiplyScalar(0.8);
+    m.scale.set(n === "x" ? 0.03 : sz.x, n === "y" ? 0.03 : sz.y, n === "z" ? 0.03 : sz.z);
+    m.position.copy(a).add(b).multiplyScalar(0.5);
+    m.userData.key = key; g.add(m);
+  };
+  if (ftool === "post") for (let i = 0; i < nx; i++) for (let k = 0; k < nz; k++) for (let j = 0; j < ny - 1; j++) addBar(`ey:${i},${j},${k}`, V(i, j, k), V(i, j + 1, k));
+  if (ftool === "beam") for (let j = 0; j < ny; j++) {
+    for (let i = 0; i < nx - 1; i++) for (let k = 0; k < nz; k++) addBar(`ex:${i},${j},${k}`, V(i, j, k), V(i + 1, j, k));
+    for (let i = 0; i < nx; i++) for (let k = 0; k < nz - 1; k++) addBar(`ez:${i},${j},${k}`, V(i, j, k), V(i, j, k + 1));
+  }
+  if (ftool === "brace") for (let j = 0; j < ny - 1; j++) {
+    for (let i = 0; i < nx; i++) for (let k = 0; k < nz - 1; k++) addFace(`fx:${i},${j},${k}`, "x", i, j, k);
+    for (let i = 0; i < nx - 1; i++) for (let k = 0; k < nz; k++) addFace(`fz:${i},${j},${k}`, "z", i, j, k);
+  }
+  if (ftool === "deck" || ftool === "roll") for (let j = 1; j < ny; j++) for (let i = 0; i < nx - 1; i++) for (let k = 0; k < nz - 1; k++) addFace(`fy:${i},${j},${k}`, "y", i, j, k);
+}
+
+// 一次点击会产生哪些改动：[[key, 新值 | null]]
+function planAction(key, shift) {
+  const f = S.frame, m = f.m, [nx, ny, nz] = dims(f);
+  const { t, idx: [i, j, k] } = parseKey(key);
+  const range = (n) => [...Array(n).keys()];
+  const toggle = (keys, val) => { const on = !(key in m); return keys.map((kk) => [kk, on ? val : null]); };
+  switch (ftool) {
+    case "post": return shift ? toggle([key], 1) : toggle(range(ny - 1).map((jj) => `ey:${i},${jj},${k}`), 1);
+    case "beam":
+      if (!shift) return toggle([key], 1);
+      return t === "ex" ? toggle(range(nx - 1).map((ii) => `ex:${ii},${j},${k}`), 1) : toggle(range(nz - 1).map((kk) => `ez:${i},${j},${kk}`), 1);
+    case "brace": { const v = m[key]; return [[key, !v ? "/" : v === "/" ? "\\" : v === "\\" ? "X" : null]]; }
+    case "deck":
+      if (!shift) return toggle([key], "d");
+      return toggle(range(nx - 1).flatMap((ii) => range(nz - 1).map((kk) => `fy:${ii},${j},${kk}`)), "d");
+    case "roll": return [[key, m[key] === "r" ? "d" : "r"]];
+    case "erase": return [[key, null]];
+  }
+  return [];
+}
+function showGhost(key, shift) {
+  if (!F) return;
+  clearGroup(F.g.ghost);
+  if (!key) return;
+  for (const [k, v] of planAction(key, shift)) {
+    const cur = S.frame.m[k];
+    if (v == null) { if (cur != null) memberMeshes(k, cur, F.mat.del).forEach((x) => F.g.ghost.add(x)); }
+    else memberMeshes(k, v, F.mat.add).forEach((x) => F.g.ghost.add(x));
+  }
+}
+function pickKey(e) {
+  const r = F.renderer.domElement.getBoundingClientRect();
+  const v = new F.THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  F.ray.setFromCamera(v, F.camera);
+  const targets = ftool === "erase" ? F.g.m.children : F.g.pick.children;
+  const hit = F.ray.intersectObjects(targets, false)[0];
+  return hit ? hit.object.userData.key : null;
+}
+function bindFrameEvents(cv) {
+  let down = null;
+  cv.addEventListener("pointerdown", (e) => { down = { x: e.clientX, y: e.clientY, b: e.button }; showGhost(null); });
+  cv.addEventListener("pointerup", (e) => {
+    if (!down) return;
+    const tap = Math.hypot(e.clientX - down.x, e.clientY - down.y) < 6 && down.b === 0;
+    down = null;
+    if (!tap || ftool === "view") return;
+    const key = pickKey(e);
+    if (!key) return;
+    const ch = planAction(key, e.shiftKey);
+    if (!ch.length) return;
+    snap();
+    for (const [k, v] of ch) { if (v == null) delete S.frame.m[k]; else S.frame.m[k] = v; }
+    changed();
+    if (e.pointerType === "mouse") { lastHover = e; showGhost(pickKey(e), e.shiftKey); }
+  });
+  cv.addEventListener("pointermove", (e) => {
+    if (e.buttons || ftool === "view" || e.pointerType !== "mouse") return;
+    lastHover = e;
+    showGhost(pickKey(e), e.shiftKey);
+  });
+  cv.addEventListener("pointerleave", () => { lastHover = null; showGhost(null); });
+}
+function fitFrame() {
+  if (!F) return;
+  const f = S.frame, THREE = F.THREE;
+  const a = new THREE.Vector3(f.xs[0], f.ys[0], f.zs[0]).multiplyScalar(0.001), b = new THREE.Vector3(f.xs.at(-1), f.ys.at(-1), f.zs.at(-1)).multiplyScalar(0.001);
+  const c = a.clone().add(b).multiplyScalar(0.5);
+  const size = Math.max(b.x - a.x, b.y - a.y, b.z - a.z, 1);
+  const k = Math.max(1, 1.3 / F.camera.aspect);
+  F.camera.position.copy(c).add(new THREE.Vector3(0.75, 0.5, 1.15).normalize().multiplyScalar(size * 1.9 * k));
+  F.controls.target.copy(c);
+  F.controls.update();
+}
+function setFTool(t) {
+  ftool = t;
+  document.querySelectorAll("#ftools .tool").forEach((b) => b.setAttribute("aria-pressed", b.dataset.ftool === t));
+  $("fhint").textContent = {
+    view: "拖动旋转 · 右键/双指拖动平移 · 滚轮/双指缩放",
+    post: "点竖线：放/拆整根立柱 · Shift+点 只动一段 · 拖动仍可旋转视角",
+    beam: "点横线：放/拆一根梁 · Shift+点 整排",
+    brace: "点竖向的格子面：每点一次 ╱ → ╲ → ✕ → 拆掉",
+    deck: "点水平的格子面：放/拆托梁层 · Shift+点 整层",
+    roll: "点托梁层：放/拿走布卷（看能放多少）",
+    erase: "点任意构件拆掉",
+  }[t];
+  buildPicks();
+  showGhost(null);
+}
+
+// ---------- 结构面板 ----------
+function renderFramePanel() {
+  const f = S.frame;
+  for (const [id, a] of [["lx", "xs"], ["ly", "ys"], ["lz", "zs"]]) if (document.activeElement !== $(id)) $(id).value = f[a].join(", ");
+  const bom = frameBOM();
+  const box = $("fbom");
+  if (!bom.items.length) { box.innerHTML = `<p class="muted">还没有构件。</p>`; return; }
+  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  box.innerHTML = `<table class="bom"><thead><tr><th>构件</th><th class="n">根</th><th class="n">kg</th></tr></thead><tbody>${bom.items.map((it) => `
+    <tr><td>${it.name}<br><select data-sec="${it.kind}">${Object.keys(SECTIONS).map((s) => `<option${s === it.spec ? " selected" : ""}>${esc(s)}</option>`).join("")}</select>
+    <div class="muted">${it.pieces.map(([l, c]) => `L${l}×${c}`).join(" · ")}</div></td>
+    <td class="n">${it.count}</td><td class="n">${it.kg}</td></tr>`).join("")}</tbody>
+    <tfoot><tr><td>合计</td><td></td><td class="n"><b>${bom.kg}</b></td></tr></tfoot></table>
+    ${bom.rolls ? `<p class="muted">图中布卷 ${bom.rolls} 卷（按直径 40cm 估）。</p>` : ""}`;
+  box.querySelectorAll("[data-sec]").forEach((s) => s.onchange = () => { snap(); S.frame.sec[s.dataset.sec] = s.value; changed(); });
+}
+function parseList(s) { return [...new Set(s.split(/[,，\s]+/).filter(Boolean).map(Number).filter((v) => isFinite(v)))].sort((a, b) => a - b); }
+function setLines(axis, list) {
+  const f = S.frame, key = axis + "s", a = AX.indexOf(axis), old = f[key];
+  if (list.length < 2) { toast("至少要两条线"); renderFramePanel(); return; }
+  snap();
+  if (list.length !== old.length) {   // 数量变了：按数值对应旧线，对不上的构件删掉
+    const map = old.map((v) => list.indexOf(v));
+    const m = {};
+    for (const [k, v] of Object.entries(f.m)) {
+      const { t, idx } = parseKey(k);
+      const ni = map[idx[a]];
+      if (ni < 0) continue;
+      if (spansAxis(t, a) && map[idx[a] + 1] !== ni + 1) continue;
+      idx[a] = ni;
+      m[makeKey(t, idx)] = v;
+    }
+    f.m = m;
+  }
+  f[key] = list;
+  pruneFrame(f);
+  changed();
+}
+function addLine(axis, sign) {
+  const f = S.frame, key = axis + "s", a = AX.indexOf(axis), list = f[key], n = list.length;
+  if (sign < 0) { if (n <= 2) return; snap(); list.pop(); pruneFrame(f); changed(); return; }
+  snap();
+  list.push(list[n - 1] + (list[n - 1] - list[n - 2]));
+  for (const [k, v] of Object.entries({ ...f.m })) {   // 复制最后一格/一层
+    const { t, idx } = parseKey(k);
+    if ((spansAxis(t, a) && idx[a] === n - 2) || (!spansAxis(t, a) && idx[a] === n - 1)) { idx[a] += 1; f.m[makeKey(t, idx)] = v; }
+  }
+  changed();
+  fitFrame();
+}
+
+// ================= 导入 / 导出 =================
+function exportObj() {
+  computeConflicts();
+  const conflicts = [...bad].map(([id, why]) => { const k = P().racks.find((x) => x.id === id); return { id, x: k.x, y: k.y, reasons: why }; });
+  return { ...clone(S), savedAt: new Date().toISOString(), summary: { plan: planStats(), conflicts, frame: frameBOM() } };
+}
+function stamp() { const d = new Date(), p = (n) => String(n).padStart(2, "0"); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`; }
+
+// ================= 绑定 =================
+function syncSettings() {
+  $("step").value = S.set.step;
+  $("aisle").value = S.set.aisle;
+  $("ghost").value = S.set.ghost;
+  document.querySelectorAll(".notes").forEach((t) => { if (document.activeElement !== t) t.value = S.notes; });
+  renderGhost();
+}
+function setTab(t) {
+  tab = t;
+  document.querySelectorAll("[data-tab]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.tab === t));
+  $("appPlan").hidden = t !== "plan";
+  $("appFrame").hidden = t !== "frame";
+  try { localStorage.setItem(LS_KEY + "-tab", t); } catch (e) {}
+  if (t === "frame") {
+    initFrame().then(() => { if (F) F.renderer.setAnimationLoop(() => { F.controls.update(); F.renderer.render(F.scene, F.camera); }); });
+  } else {
+    if (F) F.renderer.setAnimationLoop(null);
+    requestAnimationFrame(() => { if (!view.fitted) fitView(); });
+  }
+}
+function bindUI() {
+  document.querySelectorAll("[data-tab]").forEach((b) => b.onclick = () => setTab(b.dataset.tab));
+  document.querySelectorAll("#ptools .tool").forEach((b) => b.onclick = () => setTool(b.dataset.tool));
+  document.querySelectorAll("#ftools .tool").forEach((b) => b.onclick = () => setFTool(b.dataset.ftool));
+  $("undo").onclick = undo; $("redo").onclick = redo;
+  $("pfit").onclick = fitView; $("ffit").onclick = fitFrame;
+  $("step").onchange = () => { S.set.step = +$("step").value; save(); };
+  $("aisle").onchange = () => { const v = +$("aisle").value; if (v >= 0) { S.set.aisle = v; save(); panelSig = ""; renderProps(); } };
+  $("ghost").onchange = () => { S.set.ghost = $("ghost").value; save(); renderGhost(); };
+  document.querySelectorAll(".notes").forEach((t) => t.addEventListener("input", () => {
+    S.notes = t.value; save();
+    document.querySelectorAll(".notes").forEach((o) => { if (o !== t) o.value = t.value; });
+  }));
+  $("restart").onclick = () => {
+    const b = $("restartBase").value;
+    if (!confirm("平面会回到所选起点（结构页不受影响，可撤销）。继续？")) return;
+    snap(); S.plan = freshPlan(b); S.base = b; sel.clear(); changed();
+  };
+  $("loadPreset").onclick = () => {
+    if (Object.keys(S.frame.m).length && !confirm("结构会换成所选起点（可撤销）。继续？")) return;
+    snap(); const sec = S.frame.sec; S.frame = presetFrame($("preset").value); S.frame.sec = sec; changed(); fitFrame();
+  };
+  for (const [id, a] of [["lx", "x"], ["ly", "y"], ["lz", "z"]]) $(id).addEventListener("change", () => setLines(a, parseList($(id).value)));
+  document.querySelectorAll("[data-line]").forEach((b) => b.onclick = () => addLine(b.dataset.line[0], b.dataset.line[1] === "+" ? 1 : -1));
+  $("shot").onclick = () => {
+    if (!F) return;
+    F.renderer.render(F.scene, F.camera);
+    const a = document.createElement("a");
+    a.href = F.renderer.domElement.toDataURL("image/png");
+    a.download = `货架结构-${stamp()}.png`;
+    a.click();
+  };
+  $("exp").onclick = () => {
+    const blob = new Blob([JSON.stringify(exportObj(), null, 1)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `货架编辑-${stamp()}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+  $("copy").onclick = async () => {
+    const txt = JSON.stringify(exportObj());
+    try { await navigator.clipboard.writeText(txt); toast("已复制，直接粘贴到对话里发给 Claude"); }
+    catch (e) {
+      const ta = document.createElement("textarea"); ta.value = txt; document.body.append(ta); ta.select();
+      const ok = document.execCommand("copy"); ta.remove();
+      toast(ok ? "已复制，直接粘贴到对话里发给 Claude" : "复制失败，请用「导出 JSON」");
+    }
+  };
+  $("imp").onclick = () => $("file").click();
+  $("file").onchange = async () => {
+    const file = $("file").files[0];
+    $("file").value = "";
+    if (!file) return;
+    try {
+      const obj = JSON.parse(await file.text());
+      if (obj.format !== "warehouse-edit") throw new Error("不是本编辑器导出的文件");
+      snap(); S = migrate(obj); afterLoad(); toast("已导入");
+    } catch (e) { toast("导入失败：" + e.message); }
+  };
+  addEventListener("keydown", (e) => {
+    if (e.target.closest && e.target.closest("input,textarea,select")) return;
+    const mod = e.metaKey || e.ctrlKey, k = e.key.toLowerCase();
+    if (mod && k === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+    if (mod && k === "y") { e.preventDefault(); redo(); return; }
+    if (tab === "plan") {
+      if (mod && k === "d") { e.preventDefault(); dupSel(); return; }
+      if (mod) return;
+      const st = S.set.step * (e.shiftKey ? 10 : 1);
+      const act = {
+        v: () => setTool("select"), b: () => setTool("rack"), z: () => setTool("zone"), n: () => setTool("pin"), m: () => setTool("dim"),
+        r: rotateSel, f: fitView, delete: deleteSel, backspace: deleteSel,
+        escape: () => { sel.clear(); setTool("select"); requestRender(); },
+        arrowleft: () => nudge(-st, 0), arrowright: () => nudge(st, 0), arrowup: () => nudge(0, st), arrowdown: () => nudge(0, -st),
+        "+": () => cellsDelta(1), "=": () => cellsDelta(1), "-": () => cellsDelta(-1),
+        " ": () => { spaceDown = true; svg.style.cursor = "grab"; },
+      }[k];
+      if (act) { e.preventDefault(); act(); }
+    } else {
+      if (mod) return;
+      const t = { 1: "view", 2: "post", 3: "beam", 4: "brace", 5: "deck", 6: "roll", e: "erase" }[k];
+      if (t) setFTool(t);
+      else if (k === "f") fitFrame();
+      else if (k === "shift" && lastHover && F) showGhost(pickKey(lastHover), true);
+    }
+  });
+  addEventListener("keyup", (e) => {
+    if (e.key === " ") { spaceDown = false; setTool(tool); }
+    if (e.key === "Shift" && tab === "frame" && lastHover && F) showGhost(pickKey(lastHover), false);
+  });
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { buildFrame(); });
+}
+
+async function boot() {
+  try {
+    const [a, b] = await Promise.all(["A", "B"].map((k) => fetch(`data/layout_${k}.json`, { cache: "no-cache" }).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })));
+    BASE.A = a; BASE.B = b; B = a; H = B.outline[3];
+  } catch (e) {
+    $("pmsg").textContent = "底图加载失败：" + e.message;
+    return;
+  }
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(LS_KEY) || "null"); } catch (e) {}
+  S = saved && saved.format === "warehouse-edit" ? migrate(saved) : fresh();
+  $("pmsg").remove();
+  bindUI();
+  renderBuilding();
+  setTool("select");
+  setFTool("post");
+  syncSettings();
+  updateUndo();
+  renderFramePanel();
+  let t0 = "plan";
+  try { t0 = localStorage.getItem(LS_KEY + "-tab") || "plan"; } catch (e) {}
+  new ResizeObserver(() => { if (!view.fitted) fitView(); }).observe($("stagePlan"));
+  setTab(t0 === "frame" ? "frame" : "plan");
+  requestRender();
+  window.__ed = { get S() { return S; }, get F() { return F; }, view, exportObj };   // 调试用
+}
+boot();
+</script>
+</body>
+</html>
