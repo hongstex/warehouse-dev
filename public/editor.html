@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>货架编辑器</title>
-<meta name="description" content="自己动手摆货架平面、搭货架结构，导出 JSON 发给 Claude。">
+<meta name="description" content="自己动手摆货架平面、搭货架结构，可存多个方案，复制给 Claude。">
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect x=%221%22 y=%223%22 width=%224%22 height=%2210%22 fill=%22%236fae6e%22/%3E%3Crect x=%226%22 y=%223%22 width=%224%22 height=%2210%22 fill=%22%236fae6e%22/%3E%3Crect x=%2211%22 y=%223%22 width=%224%22 height=%2210%22 fill=%22%236fae6e%22/%3E%3C/svg%3E">
 <style>
@@ -45,6 +45,7 @@ a{color:var(--accent)}
 .btn:disabled{opacity:.4;cursor:default;border-color:var(--line)}
 .btn.pri{background:var(--accent);border-color:var(--accent);color:var(--surface);font-weight:600}
 .btn.sm{font-size:13px;padding:3px 9px}
+.top select.design{width:auto;max-width:200px;font-weight:600;background:var(--surface)}
 .app{flex:1;min-height:0;display:grid;grid-template-columns:74px minmax(0,1fr) 320px}
 .tools{display:flex;flex-direction:column;gap:4px;padding:8px 6px;background:var(--surface);border-right:1px solid var(--line);overflow:auto}
 .tool{display:flex;flex-direction:column;align-items:center;gap:1px;font:inherit;font-size:12px;line-height:1.25;padding:7px 2px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--muted);cursor:pointer}
@@ -123,6 +124,7 @@ svg text{font-family:inherit}
   .tool{min-width:58px}
   .panel{border-left:0;border-top:1px solid var(--line);overflow:visible}
   .hint{font-size:12px}
+  .top select.design{flex:1 0 100%;max-width:none}
 }
 </style>
 <script type="importmap">
@@ -136,10 +138,11 @@ svg text{font-family:inherit}
     <button data-tab="plan" aria-pressed="true">平面布置</button>
     <button data-tab="frame" aria-pressed="false">货架结构</button>
   </div>
+  <select class="design" id="design" aria-label="我的方案" title="切换 / 新建 / 复制 / 改名 / 删除方案"></select>
   <span class="sp"></span>
   <button class="btn" id="undo" title="撤销 (Ctrl/⌘+Z)">↶ 撤销</button>
   <button class="btn" id="redo" title="重做 (Ctrl/⌘+Shift+Z)">↷ 重做</button>
-  <button class="btn" id="imp">导入</button>
+  <button class="btn" id="imp" title="导入 JSON 为新方案">导入</button>
   <button class="btn" id="exp">导出 JSON</button>
   <button class="btn pri" id="copy">复制给 Claude</button>
   <a class="btn" href="./">← 方案展示</a>
@@ -238,6 +241,7 @@ const NS = "http://www.w3.org/2000/svg";
 const LS_KEY = "wh-editor-v1";
 const uid = () => Math.random().toString(36).slice(2, 9);
 const clone = (o) => JSON.parse(JSON.stringify(o));
+const escH = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const m2 = (mm) => (mm / 1000).toFixed(2);
 const cssVar = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
@@ -287,7 +291,7 @@ function migrate(s) {
   s.frame.sec = { ...DEF_SEC, ...(s.frame.sec || {}) };
   s.frame.m = s.frame.m || {};
   s.notes = s.notes || "";
-  delete s.summary; delete s.savedAt;
+  delete s.summary; delete s.savedAt; delete s.name;
   return s;
 }
 const P = () => S.plan;
@@ -302,7 +306,86 @@ function snap() {
 function undo() { if (!undoStack.length) return; redoStack.push(JSON.stringify(S)); S = JSON.parse(undoStack.pop()); afterLoad(); }
 function redo() { if (!redoStack.length) return; undoStack.push(JSON.stringify(S)); S = JSON.parse(redoStack.pop()); afterLoad(); }
 function updateUndo() { $("undo").disabled = !undoStack.length; $("redo").disabled = !redoStack.length; }
-function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {} }
+// 多方案：索引 [{id,name,t}] + 每个方案一条；改动自动存进当前方案
+const D_IDX = LS_KEY + "-designs", D_CUR = LS_KEY + "-cur", dKey = (id) => LS_KEY + "-d:" + id;
+let designs = [], curId = null;
+function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }
+function lsDel(k) { try { localStorage.removeItem(k); } catch (e) {} }
+function saveIdx() { lsSet(D_IDX, JSON.stringify(designs)); lsSet(D_CUR, curId); }
+function save() {
+  if (!curId) return;
+  if (!lsSet(dKey(curId), JSON.stringify(S))) { toast("保存失败：浏览器存储已满或被禁用"); return; }
+  const d = designs.find((x) => x.id === curId);
+  if (d) { d.t = Date.now(); saveIdx(); }
+}
+function readDesign(id) {
+  let o = null;
+  try { o = JSON.parse(lsGet(dKey(id)) || "null"); } catch (e) {}
+  return o && o.format === "warehouse-edit" ? migrate(o) : null;
+}
+function loadDesigns() {
+  try { designs = JSON.parse(lsGet(D_IDX) || "[]"); } catch (e) { designs = []; }
+  if (!Array.isArray(designs)) designs = [];
+  designs = designs.filter((d) => d && d.id && lsGet(dKey(d.id)));
+  if (!designs.length) {   // 首次：把旧版单份存档收成「方案 1」
+    let old = null;
+    try { old = JSON.parse(lsGet(LS_KEY) || "null"); } catch (e) {}
+    curId = uid();
+    designs = [{ id: curId, name: "方案 1", t: Date.now() }];
+    S = old && old.format === "warehouse-edit" ? migrate(old) : fresh();
+    save(); saveIdx();
+    return;
+  }
+  curId = lsGet(D_CUR);
+  if (!designs.some((d) => d.id === curId)) curId = designs[0].id;
+  S = readDesign(curId) || fresh();
+}
+function nextName(base) {
+  const names = new Set(designs.map((d) => d.name));
+  for (let i = designs.length + 1; ; i++) if (!names.has(`${base} ${i}`)) return `${base} ${i}`;
+}
+function renderDesigns() {
+  const el = $("design"), cur = designs.find((d) => d.id === curId);
+  const opts = designs.map((d) => `<option value="${d.id}">${escH(d.name)}</option>`);
+  el.innerHTML = opts.join("") +
+    `<option disabled>──────</option><option value=":new">＋ 新建方案…</option><option value=":dup">⧉ 复制「${escH(cur ? cur.name : "")}」…</option>` +
+    `<option value=":ren">✎ 重命名…</option><option value=":del"${designs.length < 2 ? " disabled" : ""}>✕ 删除当前方案</option>`;
+  el.value = curId;
+}
+function switchTo(id, obj) {
+  curId = id;
+  S = obj || readDesign(id) || fresh();
+  undoStack.length = 0; redoStack.length = 0;
+  sel.clear();
+  if (obj) save();
+  saveIdx(); renderDesigns(); afterLoad();
+  if (tab === "frame") fitFrame(); else fitView();
+}
+function designAction(v) {
+  const cur = designs.find((d) => d.id === curId);
+  if (v === ":new" || v === ":dup") {
+    const name = (prompt(v === ":new" ? "新方案名称（从方案 A + 标准单元开始，可再用「重新开始」换起点）" : "复制后的名称", v === ":new" ? nextName("方案") : cur.name + " 副本") || "").trim();
+    if (!name) return;
+    const id = uid();
+    designs.push({ id, name, t: Date.now() });
+    switchTo(id, v === ":new" ? fresh() : migrate(clone(S)));
+    toast(`已切换到「${name}」`);
+  } else if (v === ":ren") {
+    const name = (prompt("重命名方案", cur.name) || "").trim();
+    if (!name) return;
+    cur.name = name; saveIdx();
+  } else if (v === ":del") {
+    if (designs.length < 2 || !confirm(`删除方案「${cur.name}」？删除后不能撤销。`)) return;
+    designs = designs.filter((d) => d.id !== curId);
+    lsDel(dKey(curId));
+    const next = designs[designs.length - 1];
+    switchTo(next.id);
+    toast(`已删除，当前是「${next.name}」`);
+  } else if (v && v !== curId) {
+    switchTo(v);
+  }
+}
 function changed() { save(); requestRender(); buildFrame(); renderFramePanel(); updateUndo(); }
 function afterLoad() {
   const ids = new Set(allObjs().map((it) => it.o.id));
@@ -1467,7 +1550,8 @@ function addLine(axis, sign) {
 function exportObj() {
   computeConflicts();
   const conflicts = [...bad].map(([id, why]) => { const k = P().racks.find((x) => x.id === id); return { id, x: k.x, y: k.y, reasons: why }; });
-  return { ...clone(S), savedAt: new Date().toISOString(), summary: { plan: planStats(), conflicts, frame: frameBOM() } };
+  const d = designs.find((x) => x.id === curId);
+  return { ...clone(S), name: d ? d.name : "", savedAt: new Date().toISOString(), summary: { plan: planStats(), conflicts, frame: frameBOM() } };
 }
 function stamp() { const d = new Date(), p = (n) => String(n).padStart(2, "0"); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`; }
 
@@ -1541,6 +1625,7 @@ function bindUI() {
       toast(ok ? "已复制，直接粘贴到对话里发给 Claude" : "复制失败，请用「导出 JSON」");
     }
   };
+  $("design").onchange = () => { const v = $("design").value; renderDesigns(); designAction(v); renderDesigns(); };
   $("imp").onclick = () => $("file").click();
   $("file").onchange = async () => {
     const file = $("file").files[0];
@@ -1549,7 +1634,11 @@ function bindUI() {
     try {
       const obj = JSON.parse(await file.text());
       if (obj.format !== "warehouse-edit") throw new Error("不是本编辑器导出的文件");
-      snap(); S = migrate(obj); afterLoad(); toast("已导入");
+      const name = obj.name || file.name.replace(/\.json$/i, "");
+      const id = uid();
+      designs.push({ id, name, t: Date.now() });
+      switchTo(id, migrate(obj));
+      toast(`已导入为新方案「${name}」`);
     } catch (e) { toast("导入失败：" + e.message); }
   };
   addEventListener("keydown", (e) => {
@@ -1593,11 +1682,10 @@ async function boot() {
     $("pmsg").textContent = "底图加载失败：" + e.message;
     return;
   }
-  let saved = null;
-  try { saved = JSON.parse(localStorage.getItem(LS_KEY) || "null"); } catch (e) {}
-  S = saved && saved.format === "warehouse-edit" ? migrate(saved) : fresh();
+  loadDesigns();
   $("pmsg").remove();
   bindUI();
+  renderDesigns();
   renderBuilding();
   setTool("select");
   setFTool("post");
