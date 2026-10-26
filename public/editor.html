@@ -46,6 +46,9 @@ a{color:var(--accent)}
 .btn.pri{background:var(--accent);border-color:var(--accent);color:var(--surface);font-weight:600}
 .btn.sm{font-size:13px;padding:3px 9px}
 .top select.design{width:auto;max-width:200px;font-weight:600;background:var(--surface)}
+.btn.sync{color:var(--muted)}
+.btn.sync[data-st="ok"]{color:var(--accent)}
+.btn.sync[data-st="err"]{color:var(--bad);border-color:var(--bad)}
 .app{flex:1;min-height:0;display:grid;grid-template-columns:74px minmax(0,1fr) 320px}
 .tools{display:flex;flex-direction:column;gap:4px;padding:8px 6px;background:var(--surface);border-right:1px solid var(--line);overflow:auto}
 .tool{display:flex;flex-direction:column;align-items:center;gap:1px;font:inherit;font-size:12px;line-height:1.25;padding:7px 2px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--muted);cursor:pointer}
@@ -124,7 +127,7 @@ svg text{font-family:inherit}
   .tool{min-width:58px}
   .panel{border-left:0;border-top:1px solid var(--line);overflow:visible}
   .hint{font-size:12px}
-  .top select.design{flex:1 0 100%;max-width:none}
+  .top select.design{flex:1 0 60%;max-width:none}
 }
 </style>
 <script type="importmap">
@@ -139,6 +142,7 @@ svg text{font-family:inherit}
     <button data-tab="frame" aria-pressed="false">货架结构</button>
   </div>
   <select class="design" id="design" aria-label="我的方案" title="切换 / 新建 / 复制 / 改名 / 删除方案"></select>
+  <button class="btn sm sync" id="syncst" data-st="off">☁ 未同步</button>
   <span class="sp"></span>
   <button class="btn" id="undo" title="撤销 (Ctrl/⌘+Z)">↶ 撤销</button>
   <button class="btn" id="redo" title="重做 (Ctrl/⌘+Shift+Z)">↷ 重做</button>
@@ -313,12 +317,14 @@ function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return n
 function lsSet(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }
 function lsDel(k) { try { localStorage.removeItem(k); } catch (e) {} }
 function saveIdx() { lsSet(D_IDX, JSON.stringify(designs)); lsSet(D_CUR, curId); }
+let quiet = false;   // 只是载入/切换，不算修改
 function save() {
-  if (!curId) return;
+  if (!curId || quiet) return;
   if (!lsSet(dKey(curId), JSON.stringify(S))) { toast("保存失败：浏览器存储已满或被禁用"); return; }
   const d = designs.find((x) => x.id === curId);
-  if (d) { d.t = Date.now(); saveIdx(); }
+  if (d) { touch(d); saveIdx(); }
 }
+function touch(d) { d.t = Date.now(); d.dirty = true; delete d.pristine; scheduleSync(2000); }
 function readDesign(id) {
   let o = null;
   try { o = JSON.parse(lsGet(dKey(id)) || "null"); } catch (e) {}
@@ -334,7 +340,9 @@ function loadDesigns() {
     curId = uid();
     designs = [{ id: curId, name: "方案 1", t: Date.now() }];
     S = old && old.format === "warehouse-edit" ? migrate(old) : fresh();
-    save(); saveIdx();
+    save();
+    if (!old) { designs[0].pristine = true; designs[0].dirty = false; }   // 没动过的占位，云端有方案时会被替换
+    saveIdx();
     return;
   }
   curId = lsGet(D_CUR);
@@ -350,7 +358,7 @@ function renderDesigns() {
   const opts = designs.map((d) => `<option value="${d.id}">${escH(d.name)}</option>`);
   el.innerHTML = opts.join("") +
     `<option disabled>──────</option><option value=":new">＋ 新建方案…</option><option value=":dup">⧉ 复制「${escH(cur ? cur.name : "")}」…</option>` +
-    `<option value=":ren">✎ 重命名…</option><option value=":del"${designs.length < 2 ? " disabled" : ""}>✕ 删除当前方案</option>`;
+    `<option value=":ren">✎ 重命名…</option><option value=":sync">☁ 云同步设置…</option><option value=":del"${designs.length < 2 ? " disabled" : ""}>✕ 删除当前方案</option>`;
   el.value = curId;
 }
 function switchTo(id, obj) {
@@ -359,7 +367,7 @@ function switchTo(id, obj) {
   undoStack.length = 0; redoStack.length = 0;
   sel.clear();
   if (obj) save();
-  saveIdx(); renderDesigns(); afterLoad();
+  saveIdx(); renderDesigns(); loadQuiet();
   if (tab === "frame") fitFrame(); else fitView();
 }
 function designAction(v) {
@@ -374,19 +382,128 @@ function designAction(v) {
   } else if (v === ":ren") {
     const name = (prompt("重命名方案", cur.name) || "").trim();
     if (!name) return;
-    cur.name = name; saveIdx();
+    cur.name = name; touch(cur); saveIdx();
   } else if (v === ":del") {
     if (designs.length < 2 || !confirm(`删除方案「${cur.name}」？删除后不能撤销。`)) return;
     designs = designs.filter((d) => d.id !== curId);
     lsDel(dKey(curId));
+    writeDels([...readDels(), { id: curId, t: Date.now() }]); scheduleSync(500);
     const next = designs[designs.length - 1];
     switchTo(next.id);
     toast(`已删除，当前是「${next.name}」`);
+  } else if (v === ":sync") {
+    syncSetup();
   } else if (v && v !== curId) {
     switchTo(v);
   }
 }
+
+// ================= 云同步 =================
+// 同一个同步码的设备共享一批方案；逐个方案按修改时间「后改的胜」。服务端见 functions/api/sync.js
+const SYNC_KEY = LS_KEY + "-sync", DEL_KEY = LS_KEY + "-del";
+let syncing = false, syncAgain = false, syncTimer = 0;
+function syncCfg() { try { return JSON.parse(lsGet(SYNC_KEY) || "null"); } catch (e) { return null; } }
+function readDels() { try { return JSON.parse(lsGet(DEL_KEY) || "[]"); } catch (e) { return []; } }
+function writeDels(a) { lsSet(DEL_KEY, JSON.stringify(a)); }
+function genCode() {
+  const A = "abcdefghjkmnpqrstuvwxyz23456789", r = crypto.getRandomValues(new Uint8Array(16));
+  return "wh-" + [...r].map((b, i) => (i && i % 4 === 0 ? "-" : "") + A[b % A.length]).join("");
+}
+function setSync(st, msg) {
+  const el = $("syncst");
+  el.dataset.st = st;
+  el.textContent = { off: "☁ 未同步", busy: "☁ 同步中…", ok: "☁ 已同步", err: "☁ 同步失败" }[st];
+  el.title = st === "off" ? "点这里开启云同步，手机和电脑看到同一批方案" : st === "err" ? "同步失败：" + msg + "（改动已存本机，联网后自动重试）" : "云同步已开启，点这里查看同步码";
+}
+function scheduleSync(ms) { if (!syncCfg()) return; clearTimeout(syncTimer); syncTimer = setTimeout(sync, ms); }
+async function api(method, body) {
+  const c = syncCfg();
+  const url = "/api/sync" + (method === "GET" ? "?since=" + Math.max(0, (c.since || 0) - 60000) : "");
+  const r = await fetch(url, { method, headers: { "x-sync-code": c.code, "content-type": "application/json" }, body: body && JSON.stringify(body), cache: "no-store" });
+  const o = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(o.error || "HTTP " + r.status);
+  return o;
+}
+async function sync() {
+  if (!syncCfg()) { setSync("off"); return; }
+  if (syncing) { syncAgain = true; return; }
+  syncing = true; setSync("busy");
+  try {
+    // 1. 推本机改动
+    const dels = readDels();
+    const items = designs.filter((d) => d.dirty && !d.pristine).map((d) => {
+      let data = null; try { data = JSON.parse(lsGet(dKey(d.id)) || "null"); } catch (e) {}
+      return { id: d.id, name: d.name, t: d.t, data };
+    }).concat(dels.map((x) => ({ id: x.id, t: x.t, deleted: true })));
+    if (items.length) {
+      await api("POST", { items });
+      for (const d of designs) if (items.some((i) => i.id === d.id && i.t === d.t)) d.dirty = false;   // 推送途中又改了的继续标脏
+      writeDels(readDels().filter((x) => !dels.some((y) => y.id === x.id && y.t === x.t)));
+      saveIdx();
+    }
+    // 2. 拉云端改动
+    const c = syncCfg(), res = await api("GET");
+    let listChanged = false, curChanged = false;
+    for (const r of res.items) {
+      const i = designs.findIndex((d) => d.id === r.id), loc = designs[i];
+      if (r.deleted) {
+        if (loc && loc.t <= r.t) { designs.splice(i, 1); lsDel(dKey(r.id)); listChanged = true; curChanged ||= r.id === curId; }
+        continue;
+      }
+      if (loc && loc.t >= r.t) continue;
+      lsSet(dKey(r.id), JSON.stringify(r.data));
+      if (loc) { loc.name = r.name; loc.t = r.t; loc.dirty = false; delete loc.pristine; }
+      else designs.push({ id: r.id, name: r.name, t: r.t });
+      listChanged = true; curChanged ||= r.id === curId;
+    }
+    if (designs.some((d) => !d.pristine) && designs.some((d) => d.pristine)) {   // 有真方案了，丢掉没动过的占位
+      for (const d of designs.filter((d) => d.pristine)) { lsDel(dKey(d.id)); curChanged ||= d.id === curId; }
+      designs = designs.filter((d) => !d.pristine);
+      listChanged = true;
+    }
+    if (!designs.length) { const id = uid(); designs.push({ id, name: "方案 1", t: Date.now() }); lsSet(dKey(id), JSON.stringify(fresh())); listChanged = true; curChanged = true; }
+    c.since = res.now; lsSet(SYNC_KEY, JSON.stringify(c));
+    saveIdx();
+    if (curChanged) {
+      if (designs.some((d) => d.id === curId)) { S = readDesign(curId) || fresh(); undoStack.length = 0; redoStack.length = 0; renderDesigns(); loadQuiet(); toast("当前方案已更新为云端最新版本"); }
+      else { const n = designs[designs.length - 1]; switchTo(n.id); toast(`当前方案已在别的设备删除，切到「${n.name}」`); }
+    } else if (listChanged) renderDesigns();
+    setSync("ok");
+  } catch (e) {
+    setSync("err", e.message);
+  } finally {
+    syncing = false;
+    if (syncAgain) { syncAgain = false; scheduleSync(300); }
+  }
+}
+function enableSync(code) {
+  lsSet(SYNC_KEY, JSON.stringify({ code, since: 0 }));
+  for (const d of designs) if (!d.pristine) d.dirty = true;   // 本机已有方案并进这个同步码
+  saveIdx();
+  sync();
+}
+function syncSetup() {
+  const c = syncCfg();
+  if (!c) {
+    const code = (prompt("开启云同步：手机和电脑填同一个同步码，就能看到同一批方案。\n\n· 第一次开：直接点确定，用下面新生成的码（记下来）\n· 别的设备已经开过：把那边的同步码粘贴进来\n\n同步码就是钥匙，知道它的人都能看到和修改这些方案。", genCode()) || "").trim();
+    if (!code) return;
+    if (code.length < 8) { toast("同步码至少 8 位"); return; }
+    enableSync(code);
+    toast("云同步已开启");
+    return;
+  }
+  const link = location.origin + location.pathname + "#sync=" + encodeURIComponent(c.code);
+  const v = prompt(`当前同步码（另一台设备填同一个码，或直接打开下面的链接）：\n${link}\n\n· 改成别的码 = 换到另一批方案（本机方案会一起带过去）\n· 清空后确定 = 关闭本机云同步（本机方案保留）`, c.code);
+  if (v === null) return;
+  const code = v.trim();
+  if (!code) { lsDel(SYNC_KEY); setSync("off"); toast("本机已关闭云同步"); return; }
+  if (code === c.code) return;
+  if (code.length < 8) { toast("同步码至少 8 位"); return; }
+  enableSync(code);
+  toast("已换成新的同步码");
+}
 function changed() { save(); requestRender(); buildFrame(); renderFramePanel(); updateUndo(); }
+function loadQuiet() { quiet = true; try { afterLoad(); } finally { quiet = false; } }
 function afterLoad() {
   const ids = new Set(allObjs().map((it) => it.o.id));
   sel = new Set([...sel].filter((id) => ids.has(id)));
@@ -1626,6 +1743,10 @@ function bindUI() {
     }
   };
   $("design").onchange = () => { const v = $("design").value; renderDesigns(); designAction(v); renderDesigns(); };
+  $("syncst").onclick = syncSetup;
+  document.addEventListener("visibilitychange", () => scheduleSync(document.hidden ? 0 : 200));
+  addEventListener("online", () => scheduleSync(200));
+  setInterval(() => { if (!document.hidden) scheduleSync(0); }, 20000);
   $("imp").onclick = () => $("file").click();
   $("file").onchange = async () => {
     const file = $("file").files[0];
@@ -1686,6 +1807,13 @@ async function boot() {
   $("pmsg").remove();
   bindUI();
   renderDesigns();
+  const m = location.hash.match(/^#sync=(.+)$/);   // 别的设备分享过来的同步链接
+  if (m) {
+    history.replaceState(null, "", location.pathname + location.search);
+    const code = decodeURIComponent(m[1]).trim(), c = syncCfg();
+    if (code.length >= 8 && (!c || c.code !== code)) { enableSync(code); toast("已用链接里的同步码开启云同步"); }
+  }
+  if (syncCfg()) sync(); else setSync("off");
   renderBuilding();
   setTool("select");
   setFTool("post");
