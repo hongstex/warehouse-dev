@@ -222,7 +222,10 @@ svg text{font-family:inherit}
     <div class="msg" id="fmsg">加载 3D…</div>
   </div>
   <aside class="panel">
-    <h3>起点</h3>
+    <h3>单元</h3>
+    <select id="unitSel" aria-label="正在编辑的单元"></select>
+    <p class="muted" id="unitUse" style="margin:6px 0 0"></p>
+    <h3>起点（换掉当前单元的结构）</h3>
     <div class="row" style="margin-top:0">
       <select id="preset" style="width:auto"><option value="unit">现方案单元（2 格 × 2 层）</option><option value="b2b">背靠背双排</option><option value="blank">空白网格</option></select>
       <button class="btn sm" id="loadPreset">载入</button>
@@ -241,7 +244,7 @@ svg text{font-family:inherit}
     <p class="muted">改数字，构件跟着伸缩（比如把 2000 改成 2100 = 二层梁抬高）。一格 = 沿排（X）多一跨，一层 = 往上（Y），一列 = 进深方向（Z）往后多一排立柱；加的时候会复制最后一格 / 一层 / 一列的构件。</p>
     <h3>用料（按轴线长度估）</h3>
     <div id="fbom"></div>
-    <h3>全仓用料（平面上每排货架都用这个单元铺）</h3>
+    <h3>全仓用料（平面上所有货架，各用各的单元）</h3>
     <div id="whbom"></div>
     <h3>给 Claude 的说明</h3>
     <textarea class="notes" placeholder="比如：二层梁想调到 2.1m；斜撑太多，只要背面…"></textarea>
@@ -294,19 +297,39 @@ function freshPlan(base) {
   return { racks: base === "blank" ? [] : racksFrom(d), zones: zonesFrom(d), pins: [], dims: [] };
 }
 function fresh() {
-  return { format: "warehouse-edit", v: 1, base: "A", notes: "", set: { step: 50, aisle: 2000, ghost: "none" }, plan: freshPlan("A"), frame: presetFrame("unit") };
+  return migrate({ format: "warehouse-edit", v: 1, base: "A", notes: "", plan: freshPlan("A"), units: [{ id: uid(), name: "单元 1", frame: presetFrame("unit") }] });
 }
+// 多种单元：S.units = [{id, name, frame}]，S.unitCur = 正在编辑的；货架 rack.unit 指向用哪个（没写 = 第一个）
+// S.frame 是个不进 JSON 的访问器，指向当前单元（或 withFrame 临时指定的），原来按单个 frame 写的代码不用改
+let frameOverride = null;
+const curUnit = (s = S) => s.units.find((u) => u.id === s.unitCur) || s.units[0];
+function attach(s) {
+  Object.defineProperty(s, "frame", { configurable: true, enumerable: false,
+    get() { return frameOverride || curUnit(s).frame; }, set(v) { curUnit(s).frame = v; } });
+  return s;
+}
+function withFrame(f, fn) { const o = frameOverride; frameOverride = f; try { return fn(); } finally { frameOverride = o; } }
+const unitOf = (k) => S.units.find((u) => u.id === k.unit) || S.units[0];
 function migrate(s) {
-  const f = fresh();
-  s.set = { ...f.set, ...(s.set || {}) };
-  s.plan = { ...f.plan, ...(s.plan || {}) };
+  s.set = { step: 50, aisle: 2000, ghost: "none", ...(s.set || {}) };
+  s.plan = { ...(s.plan || freshPlan("A")) };
   for (const k of ["racks", "zones", "pins", "dims"]) s.plan[k] = s.plan[k] || [];
-  s.frame = s.frame && s.frame.xs ? s.frame : f.frame;
-  s.frame.sec = { ...DEF_SEC, ...(s.frame.sec || {}) };
-  s.frame.m = s.frame.m || {};
+  if (!Array.isArray(s.units) || !s.units.length) {   // 旧数据：只有一个 frame
+    const own = Object.getOwnPropertyDescriptor(s, "frame");
+    const fr = own && own.value && own.value.xs ? own.value : presetFrame("unit");
+    s.units = [{ id: uid(), name: "单元 1", frame: fr }];
+  }
+  delete s.frame;
+  s.units.forEach((u, i) => {
+    u.id = u.id || uid(); u.name = u.name || `单元 ${i + 1}`;
+    if (!u.frame || !u.frame.xs) u.frame = presetFrame("unit");
+    u.frame.sec = { ...DEF_SEC, ...(u.frame.sec || {}) };
+    u.frame.m = u.frame.m || {};
+  });
+  if (!s.units.some((u) => u.id === s.unitCur)) s.unitCur = s.units[0].id;
   s.notes = s.notes || "";
   delete s.summary; delete s.savedAt; delete s.name;
-  return s;
+  return attach(s);
 }
 const P = () => S.plan;
 
@@ -317,8 +340,8 @@ function snap() {
   redoStack.length = 0;
   updateUndo();
 }
-function undo() { if (!undoStack.length) return; redoStack.push(JSON.stringify(S)); S = JSON.parse(undoStack.pop()); afterLoad(); }
-function redo() { if (!redoStack.length) return; undoStack.push(JSON.stringify(S)); S = JSON.parse(redoStack.pop()); afterLoad(); }
+function undo() { if (!undoStack.length) return; redoStack.push(JSON.stringify(S)); S = attach(JSON.parse(undoStack.pop())); afterLoad(); }
+function redo() { if (!redoStack.length) return; undoStack.push(JSON.stringify(S)); S = attach(JSON.parse(redoStack.pop())); afterLoad(); }
 function updateUndo() { $("undo").disabled = !undoStack.length; $("redo").disabled = !redoStack.length; }
 // 多方案：索引 [{id,name,t}] + 每个方案一条；改动自动存进当前方案
 const D_IDX = LS_KEY + "-designs", D_CUR = LS_KEY + "-cur", dKey = (id) => LS_KEY + "-d:" + id;
@@ -641,7 +664,12 @@ function drawRack(k, parent) {
     const ln = { E: [w - m, m, w - m, h - m], W: [m, m, m, h - m], N: [m, m, w - m, m], S: [m, h - m, w - m, h - m] }[c];
     if (ln) el("line", { class: "face", x1: ln[0], y1: ln[1], x2: ln[2], y2: ln[3] }, g);
   }
-  if (k.levels !== 2) { const t = el("text", { x: w / 2, y: h / 2, "font-size": 520, "text-anchor": "middle", "dominant-baseline": "middle" }, g); t.textContent = k.levels + "层"; }
+  const tag = [S.units.length > 1 ? unitOf(k).name : "", k.levels !== 2 ? k.levels + "层" : ""].filter(Boolean).join(" ");
+  if (tag) {
+    const t = el("text", { x: w / 2, y: h / 2, "font-size": Math.min(520, Math.max(w, h) / tag.length * 0.8), "text-anchor": "middle", "dominant-baseline": "middle" }, g);
+    if (k.axis === "y") t.setAttribute("transform", `rotate(-90 ${w / 2} ${h / 2})`);
+    t.textContent = tag;
+  }
 }
 
 function drawDim(a, b, label, cls, parent, px) {
@@ -1151,7 +1179,7 @@ function cellsDelta(d) {
 }
 function onSelect() {
   const items = selItems();
-  if (items.length === 1 && items[0].type === "rack") { const { n, axis, cell, depth, levels, face } = items[0].o; tpl = { n, axis, cell, depth, levels, face }; }
+  if (items.length === 1 && items[0].type === "rack") { const { n, axis, cell, depth, levels, face, unit } = items[0].o; tpl = { n, axis, cell, depth, levels, face, unit }; }
 }
 
 // ---------- 属性面板 ----------
@@ -1167,6 +1195,7 @@ const FIELDS = {
     { label: "方向", type: "sel", multi: true, opts: () => [["y", "南北向（沿 Y）"], ["x", "东西向（沿 X）"]], get: (o) => o.axis,
       set: (o, v) => { if (o.axis !== v) { o.axis = v; o.face = { E: "S", W: "N", EW: "NS", N: "W", S: "E", NS: "EW" }[o.face] || o.face; } } },
     { label: "取货面", type: "sel", multi: true, opts: (objs) => FACE_OPTS[objs[0].axis], sameAxis: true, get: (o) => o.face, set: (o, v) => (o.face = v) },
+    { label: "结构单元", type: "sel", multi: true, opts: () => S.units.map((u) => [u.id, u.name]), get: (o) => unitOf(o).id, set: (o, v) => (o.unit = v) },
   ],
   zone: [
     { label: "名称", type: "text", multi: true, get: (o) => o.name, set: (o, v) => (o.name = v) },
@@ -1430,7 +1459,27 @@ function bomOf(racks) {
   return { items, kg: +kg.toFixed(1), meters: +meters.toFixed(2), specs, rolls };
 }
 const frameBOM = () => bomOf([null]);
-const whBOM = () => { const R = P().racks; return { racks: R.length, cells: R.reduce((n, k) => n + k.n, 0), ...bomOf(R) }; };
+function whBOM() {   // 每种单元各算各的，再按「构件 + 规格」合并
+  const R = P().racks, parts = S.units.map((u) => withFrame(u.frame, () => bomOf(R.filter((k) => unitOf(k) === u))));
+  const items = new Map(), specs = {};
+  let rolls = 0;
+  for (const b of parts) {
+    rolls += b.rolls;
+    for (const x of b.specs) specs[x.spec] = (specs[x.spec] || 0) + x.m;
+    for (const it of b.items) {
+      const key = it.kind + "|" + it.spec, o = items.get(key) || { kind: it.kind, name: it.name, spec: it.spec, pieces: new Map(), count: 0, total_m: 0, kg: 0 };
+      for (const [l, c] of it.pieces) o.pieces.set(l, (o.pieces.get(l) || 0) + c);
+      o.count += it.count; o.total_m += it.total_m; o.kg += it.kg;
+      items.set(key, o);
+    }
+  }
+  const list = [...items.values()].map((o) => ({ ...o, pieces: [...o.pieces].sort((a, b) => b[0] - a[0]), total_m: +o.total_m.toFixed(2), kg: +o.kg.toFixed(1) }));
+  return {
+    racks: R.length, cells: R.reduce((n, k) => n + k.n, 0), items: list,
+    kg: +list.reduce((n, o) => n + o.kg, 0).toFixed(1), meters: +list.reduce((n, o) => n + o.total_m, 0).toFixed(2),
+    specs: Object.entries(specs).sort((a, b) => b[1] - a[1]).map(([spec, m]) => ({ spec, m: +m.toFixed(2) })), rolls,
+  };
+}
 // 单元的格宽 / 进深 / 托梁层数 → 平面货架尺寸
 function unitSpec() {
   const f = S.frame, B = f.xs.length - 1, lv = new Set();
@@ -1701,7 +1750,7 @@ function setFMode(m) {
   fmode = m;
   document.querySelectorAll("[data-fmode]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.fmode === m));
   lsSet(LS_KEY + "-fmode", m);
-  if (m === "wh") $("fhint").textContent = "全仓预览：平面每排货架 = 单元按格铺 · 拖动旋转 · 双指/滚轮缩放 · 点左侧工具回到单元";
+  if (m === "wh") $("fhint").textContent = "全仓预览：平面每排货架按它选的单元逐格铺 · 拖动旋转 · 双指/滚轮缩放 · 点左侧工具回到单元";
   else setFTool(ftool);
   if (!F) return;
   buildFrame(); fitFrame();
@@ -1729,6 +1778,24 @@ function buildWarehouse() {
   for (const h of B.hydrants) slab(h, 1.2, std("--shutter"));
   slab([B.shutter.x - 80, B.shutter.y[0], B.shutter.x + 80, B.shutter.y[1]], 0.3, std("--shutter"));
 
+  const buckets = new Map();
+  const put = (meshes, M) => { for (const m of meshes) {
+    const key = m.geometry.uuid + m.material.uuid;
+    if (!buckets.has(key)) buckets.set(key, { geo: m.geometry, mat: m.material, list: [] });
+    buckets.get(key).list.push(M.clone().multiply(m.matrix));
+  } };
+  for (const u of S.units) withFrame(u.frame, () => placeUnit(u, P().racks.filter((k) => unitOf(k) === u), put));
+  for (const { geo, mat, list } of buckets.values()) {
+    const im = new THREE.InstancedMesh(geo, mat, list.length);
+    list.forEach((M, i) => im.setMatrixAt(i, M));
+    im.instanceMatrix.needsUpdate = true;
+    im.computeBoundingSphere();
+    g.add(im);
+  }
+}
+function placeUnit(u, racks, put) {
+  if (!racks.length) return;
+  const THREE = F.THREE, f = S.frame;
   // 单元模板：每格的构件、每条 X 线上的构件（含立柱），坐标还是单元自己的
   const U = unitIndex(), nx = f.xs.length, ny = f.ys.length, nz = f.zs.length;
   const prep = (pairs) => pairs.flatMap(([k, v]) => memberMeshes(k, v)).map((m) => { m.updateMatrix(); return m; });
@@ -1738,14 +1805,8 @@ function buildWarehouse() {
     for (let k = 0; k < nz; k++) for (let j = 0; j < ny - 1; j++) if (f.m[`ey:${i},${j},${k}`]) posts.push([`ey:${i},${j},${k}`, 1]);
     return prep(pairs.concat(posts));
   });
-  const buckets = new Map();
-  const put = (meshes, M) => { for (const m of meshes) {
-    const key = m.geometry.uuid + m.material.uuid;
-    if (!buckets.has(key)) buckets.set(key, { geo: m.geometry, mat: m.material, list: [] });
-    buckets.get(key).list.push(M.clone().multiply(m.matrix));
-  } };
   const zd = unitDepth(), V3 = (x, y, z) => new THREE.Vector3(x, y, z);
-  for (const k of P().racks) {
+  for (const k of racks) {
     const L = k.n * k.cell, sz = k.depth / zd, [x0, y0] = [k.x, k.y];
     // 单元 X（沿排）、Z（进深，正面在 Z 大的一侧）→ 平面方向；保持右手系，避免镜像
     const face = k.face[0];
@@ -1769,19 +1830,17 @@ function buildWarehouse() {
     }
     if (last) put(tLine[last[1] + 1], last[0]);
   }
-  for (const { geo, mat, list } of buckets.values()) {
-    const im = new THREE.InstancedMesh(geo, mat, list.length);
-    list.forEach((M, i) => im.setMatrixAt(i, M));
-    im.instanceMatrix.needsUpdate = true;
-    im.computeBoundingSphere();
-    g.add(im);
-  }
 }
 function renderUnitInfo() {
-  const u = unitSpec(), R = P().racks;
-  const off = R.filter((k) => k.cell !== u.cell || k.depth !== u.depth).length;
-  $("unitInfo").innerHTML = `3D 单元：格宽 <b>${u.cell}</b> · 进深 <b>${u.depth}</b> · ${u.levels} 层托梁。平面上每排货架在「全仓 3D」里都用这个单元按格铺。` +
-    (off ? `<br><span style="color:var(--bad)">${off} 排货架尺寸和单元不一样</span>（全仓 3D 会按货架尺寸伸缩单元）。` : "");
+  const R = P().racks;
+  let off = 0;
+  const rows = S.units.map((u) => {
+    const sp = withFrame(u.frame, unitSpec), mine = R.filter((k) => unitOf(k) === u);
+    off += mine.filter((k) => k.cell !== sp.cell || k.depth !== sp.depth).length;
+    return `<b>${escH(u.name)}</b>：格宽 ${sp.cell} · 进深 ${sp.depth} · ${sp.levels} 层，${mine.length} 排在用`;
+  });
+  $("unitInfo").innerHTML = rows.join("<br>") + `<br>每排货架用哪个单元，在上面选中货架后的「结构单元」里改。` +
+    (off ? `<br><span style="color:var(--bad)">${off} 排货架尺寸和它的单元不一样</span>（全仓 3D 会按货架尺寸伸缩单元）。` : "");
 }
 
 function fitFrame() {
@@ -1822,7 +1881,44 @@ function setFTool(t) {
 }
 
 // ---------- 结构面板 ----------
+function renderUnits() {
+  const R = P().racks, cur = curUnit(), n = (u) => R.filter((k) => unitOf(k) === u).length;
+  $("unitSel").innerHTML = S.units.map((u) => `<option value="${u.id}">${escH(u.name)} · ${n(u)} 排</option>`).join("") +
+    `<option disabled>──────</option><option value=":new">＋ 新建单元（用下面选的起点）…</option><option value=":dup">⧉ 复制「${escH(cur.name)}」…</option>` +
+    `<option value=":ren">✎ 重命名…</option><option value=":del"${S.units.length < 2 ? " disabled" : ""}>✕ 删除当前单元</option>`;
+  $("unitSel").value = cur.id;
+  $("unitUse").textContent = S.units.length > 1 ? `平面上 ${n(cur)} 排货架用「${cur.name}」。在平面页选中货架，「结构单元」里换。` : "平面上的货架都用这个单元。要单排、背靠背用不同结构，就新建一个单元。";
+}
+function unitAction(v) {
+  const cur = curUnit();
+  if (v === ":new" || v === ":dup") {
+    const name = (prompt(v === ":new" ? "新单元名称（结构用面板里「起点」选的那种）" : "复制后的名称", v === ":new" ? `单元 ${S.units.length + 1}` : cur.name + " 副本") || "").trim();
+    if (!name) return;
+    snap();
+    const u = { id: uid(), name, frame: v === ":new" ? presetFrame($("preset").value) : clone(cur.frame) };
+    if (v === ":new") u.frame.sec = { ...cur.frame.sec };
+    S.units.push(u); S.unitCur = u.id;
+    changed(); fitFrame();
+    toast(`已新建「${name}」，在平面页选中货架把「结构单元」换成它`);
+  } else if (v === ":ren") {
+    const name = (prompt("单元名称", cur.name) || "").trim();
+    if (!name || name === cur.name) return;
+    snap(); cur.name = name; changed();
+  } else if (v === ":del") {
+    if (S.units.length < 2) return;
+    const rest = S.units.filter((u) => u !== cur), n = P().racks.filter((k) => unitOf(k) === cur).length;
+    if (!confirm(`删除单元「${cur.name}」？${n ? `用它的 ${n} 排货架改用「${rest[0].name}」。` : ""}（可撤销）`)) return;
+    snap();
+    for (const k of P().racks) if (unitOf(k) === cur) k.unit = rest[0].id;
+    S.units = rest; S.unitCur = rest[0].id;
+    changed(); fitFrame();
+  } else if (v && v !== S.unitCur) {
+    S.unitCur = v; changed(); fitFrame();
+  }
+  panelSig = ""; renderProps();
+}
 function renderFramePanel() {
+  renderUnits();
   const f = S.frame;
   for (const [id, a] of [["lx", "xs"], ["ly", "ys"], ["lz", "zs"]]) if (document.activeElement !== $(id)) $(id).value = f[a].join(", ");
   const bom = frameBOM();
@@ -1883,7 +1979,9 @@ function exportObj() {
   computeConflicts();
   const conflicts = [...bad].map(([id, why]) => { const k = P().racks.find((x) => x.id === id); return { id, x: k.x, y: k.y, reasons: why }; });
   const d = designs.find((x) => x.id === curId);
-  return { ...clone(S), name: d ? d.name : "", savedAt: new Date().toISOString(), summary: { plan: planStats(), conflicts, frame: frameBOM(), warehouse: whBOM(), unit: unitSpec() } };
+  return { ...clone(S), name: d ? d.name : "", savedAt: new Date().toISOString(), summary: { plan: planStats(), conflicts,
+    units: S.units.map((u) => ({ id: u.id, name: u.name, racks: P().racks.filter((k) => unitOf(k) === u).length, ...withFrame(u.frame, () => ({ spec: unitSpec(), bom: frameBOM() })) })),
+    warehouse: whBOM() } };
 }
 function stamp() { const d = new Date(), p = (n) => String(n).padStart(2, "0"); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`; }
 
@@ -1927,6 +2025,7 @@ function bindUI() {
     if (!confirm("平面会回到所选起点（结构页不受影响，可撤销）。继续？")) return;
     snap(); S.plan = freshPlan(b); S.base = b; sel.clear(); changed();
   };
+  $("unitSel").onchange = () => { const v = $("unitSel").value; renderUnits(); unitAction(v); renderUnits(); };
   $("loadPreset").onclick = () => {
     if (Object.keys(S.frame.m).length && !confirm("结构会换成所选起点（可撤销）。继续？")) return;
     snap(); const sec = S.frame.sec; S.frame = presetFrame($("preset").value); S.frame.sec = sec; changed(); fitFrame();
@@ -1966,12 +2065,13 @@ function bindUI() {
   document.querySelectorAll("[data-fmode]").forEach((b) => b.onclick = () => setFMode(b.dataset.fmode));
   $("viewWh").onclick = () => { setFMode("wh"); setTab("frame"); };
   $("applyUnit").onclick = () => {
-    const u = unitSpec(), picked = P().racks.filter((k) => sel.has(k.id)), R = picked.length ? picked : P().racks;
+    const picked = P().racks.filter((k) => sel.has(k.id)), R = picked.length ? picked : P().racks;
     if (!R.length) return;
-    if (!picked.length && !confirm(`没有选中货架：把全部 ${R.length} 排的格宽 / 进深 / 层数改成 ${u.cell} / ${u.depth} / ${u.levels}？（可撤销）`)) return;
+    if (!picked.length && !confirm(`没有选中货架：把全部 ${R.length} 排的格宽 / 进深 / 层数改成各自单元的？（可撤销）`)) return;
     snap();
-    for (const k of R) { k.cell = u.cell; k.depth = u.depth; k.levels = u.levels; }
-    Object.assign(tpl, { cell: u.cell, depth: u.depth, levels: u.levels });
+    const spec = (k) => withFrame(unitOf(k).frame, unitSpec);
+    for (const k of R) { const u = spec(k); k.cell = u.cell; k.depth = u.depth; k.levels = u.levels; }
+    const t = spec(tpl); Object.assign(tpl, { cell: t.cell, depth: t.depth, levels: t.levels });
     panelSig = ""; changed(); renderProps();
     toast(`已改 ${R.length} 排货架，有冲突的会标红`);
   };
