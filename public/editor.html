@@ -1292,6 +1292,40 @@ function pruneFrame(f) {
   for (const key of Object.keys(f.m)) { const { t, idx } = parseKey(key); if (!validKey(t, idx, n)) delete f.m[key]; }
 }
 
+// 在 axis 方向插一条新网格线（mm），被切开的那一格里的构件一分为二；返回新线序号
+function insertLine(axis, v) {
+  const f = S.frame, a = AX.indexOf(axis), list = f[axis + "s"];
+  const p = list.findIndex((x) => x > v), at = p < 0 ? list.length : p;
+  list.splice(at, 0, v);
+  const m = {};
+  for (const [k, val] of Object.entries(f.m)) {
+    const { t, idx } = parseKey(k), q = idx[a];
+    if (!spansAxis(t, a)) { if (q >= at) idx[a] = q + 1; m[makeKey(t, idx)] = val; continue; }
+    if (q === at - 1) {   // 横跨插入位置：拆成两段
+      m[makeKey(t, idx)] = val;
+      const i2 = [...idx]; i2[a] = q + 1; m[makeKey(t, i2)] = val;
+    } else { if (q >= at) idx[a] = q + 1; m[makeKey(t, idx)] = val; }
+  }
+  f.m = m;
+  return at;
+}
+const SNAP_LINE = 150;   // 离已有网格线这么近就算在线上
+function floorPoint(e) {   // 鼠标落在地面上的位置 → 吸附后的 [x, z] mm
+  const r = F.renderer.domElement.getBoundingClientRect();
+  F.ray.setFromCamera(new F.THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), F.camera);
+  const hit = F.ray.ray.intersectPlane(new F.THREE.Plane(F.UP, 0), new F.THREE.Vector3());
+  if (!hit) return null;
+  const f = S.frame, cx = (f.xs[0] + f.xs.at(-1)) / 2, cz = (f.zs[0] + f.zs.at(-1)) / 2;
+  let x = hit.x * 1000, z = hit.z * 1000;
+  if (Math.abs(x - cx) > 15000 || Math.abs(z - cz) > 15000) return null;
+  const st = Math.max(10, S.set.step || 50);
+  const near = (list, v) => list.reduce((b, l) => (Math.abs(l - v) < Math.abs(b - v) ? l : b), list[0]);
+  const nx = near(f.xs, x), nz = near(f.zs, z);
+  x = Math.abs(nx - x) <= SNAP_LINE ? nx : Math.round(x / st) * st;
+  z = Math.abs(nz - z) <= SNAP_LINE ? nz : Math.round(z / st) * st;
+  return [x, z];
+}
+
 function presetFrame(type) {
   const f = { xs: [0, 2000, 4000], ys: [0, 150, 2000, 3800], zs: [0, 1950], m: {}, sec: { ...DEF_SEC } };
   if (type === "blank") { f.xs = [0, 2000]; f.ys = [0, 1000, 2000, 3000]; f.zs = [0, 1000]; return f; }
@@ -1525,6 +1559,7 @@ function buildPicks() {
 
 // 一次点击会产生哪些改动：[[key, 新值 | null]]
 function planAction(key, shift) {
+  if (key.startsWith("new:")) return [];
   const f = S.frame, m = f.m, [nx, ny, nz] = dims(f);
   const { t, idx: [i, j, k] } = parseKey(key);
   const range = (n) => [...Array(n).keys()];
@@ -1547,6 +1582,13 @@ function showGhost(key, shift) {
   if (!F) return;
   clearGroup(F.g.ghost);
   if (!key) return;
+  if (key.startsWith("new:")) {
+    const [x, z] = key.slice(4).split(",").map(Number), f = S.frame, w = SECTIONS[f.sec.post].w / 1000;
+    const a = new F.THREE.Vector3(x / 1000, f.ys[0] / 1000, z / 1000), b = a.clone().setY(f.ys.at(-1) / 1000);
+    F.g.ghost.add(bar(a, b, w, F.mat.add));
+    F.g.ghost.add(label(`x ${x} · z ${z}`, x / 1000, b.y + 0.25, z / 1000, cssVar("--accent")));
+    return;
+  }
   for (const [k, v] of planAction(key, shift)) {
     const cur = S.frame.m[k];
     if (v == null) { if (cur != null) memberMeshes(k, cur, F.mat.del).forEach((x) => F.g.ghost.add(x)); }
@@ -1557,9 +1599,22 @@ function pickKey(e) {
   const r = F.renderer.domElement.getBoundingClientRect();
   const v = new F.THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   F.ray.setFromCamera(v, F.camera);
+  F.scene.updateMatrixWorld();   // 刚重建的拾取体在下一帧渲染前还没算世界矩阵
   const targets = ftool === "erase" ? F.g.m.children : F.g.pick.children;
   const hit = F.ray.intersectObjects(targets, false)[0];
-  return hit ? hit.object.userData.key : null;
+  if (hit) return hit.object.userData.key;
+  if (ftool !== "post") return null;
+  const pt = floorPoint(e);   // 立柱：点地面任意位置
+  if (!pt) return null;
+  const f = S.frame, i = f.xs.indexOf(pt[0]), k = f.zs.indexOf(pt[1]);
+  return i >= 0 && k >= 0 ? `ey:${i},0,${k}` : `new:${pt[0]},${pt[1]}`;
+}
+function addPostAt(x, z) {
+  let i = S.frame.xs.indexOf(x), k = S.frame.zs.indexOf(z);
+  if (i < 0) i = insertLine("x", x);
+  if (k < 0) k = insertLine("z", z);
+  const ny = S.frame.ys.length;
+  for (let j = 0; j < ny - 1; j++) S.frame.m[`ey:${i},${j},${k}`] = 1;
 }
 function bindFrameEvents(cv) {
   let down = null;
@@ -1571,6 +1626,12 @@ function bindFrameEvents(cv) {
     if (!tap || ftool === "view") return;
     const key = pickKey(e);
     if (!key) return;
+    if (key.startsWith("new:")) {
+      const [x, z] = key.slice(4).split(",").map(Number);
+      snap(); addPostAt(x, z); changed();
+      toast(`已加立柱 x ${x} · z ${z}，网格线跟着加上了`);
+      return;
+    }
     const ch = planAction(key, e.shiftKey);
     if (!ch.length) return;
     snap();
@@ -1601,7 +1662,7 @@ function setFTool(t) {
   document.querySelectorAll("#ftools .tool").forEach((b) => b.setAttribute("aria-pressed", b.dataset.ftool === t));
   $("fhint").textContent = {
     view: "拖动旋转 · 右键/双指拖动平移 · 滚轮/双指缩放",
-    post: "点竖线：放/拆整根立柱 · Shift+点 只动一段 · 拖动仍可旋转视角",
+    post: "点地面任意位置加立柱（按设置里的吸附步长对齐，靠近已有线自动对齐）· 点竖线放/拆 · Shift+点 只动一段",
     beam: "点横线：放/拆一根梁 · Shift+点 整排",
     brace: "点竖向的格子面：每点一次 ╱ → ╲ → ✕ → 拆掉",
     deck: "点水平的格子面：放/拆托梁层 · Shift+点 整层",
