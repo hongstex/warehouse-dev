@@ -226,11 +226,11 @@ svg text{font-family:inherit}
       <label for="lz">进深 Z</label><input id="lz" inputmode="numeric">
     </div>
     <div class="row">
-      <button class="btn sm" data-line="x+">+ 一格</button><button class="btn sm" data-line="x-">− 一格</button>
-      <button class="btn sm" data-line="y+">+ 一层</button><button class="btn sm" data-line="y-">− 一层</button>
-      <button class="btn sm" data-line="z+">+ 进深</button><button class="btn sm" data-line="z-">− 进深</button>
+      <button class="btn sm" data-line="x+" title="沿排方向（X）往后接一格">+ 一格</button><button class="btn sm" data-line="x-">− 一格</button>
+      <button class="btn sm" data-line="y+" title="往上加一层（Y）">+ 一层</button><button class="btn sm" data-line="y-">− 一层</button>
+      <button class="btn sm" data-line="z+" title="进深方向（Z）往后加一列">+ 一列</button><button class="btn sm" data-line="z-">− 一列</button>
     </div>
-    <p class="muted">改数字，构件跟着伸缩（比如把 2000 改成 2100 = 二层梁抬高）。"+ 一格 / 一层"会复制最后一格 / 一层的构件。</p>
+    <p class="muted">改数字，构件跟着伸缩（比如把 2000 改成 2100 = 二层梁抬高）。一格 = 沿排（X）多一跨，一层 = 往上（Y），一列 = 进深方向（Z）往后多一排立柱；加的时候会复制最后一格 / 一层 / 一列的构件。</p>
     <h3>用料（按轴线长度估）</h3>
     <div id="fbom"></div>
     <h3>给 Claude 的说明</h3>
